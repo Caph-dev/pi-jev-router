@@ -1,0 +1,41 @@
+{
+  "name": "pi-jev-router",
+  "version": "0.1.0",
+  "description": "Jev-routed two-phase virtual model for pi: plan on a strong model, implement on a cheap one.",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "virtual-model",
+    "model-router",
+    "jev",
+    "classifier"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Caph-dev/pi-jev-router.git"
+  },
+  "homepage": "https://github.com/Caph-dev/pi-jev-router#readme",
+  "bugs": "https://github.com/Caph-dev/pi-jev-router/issues",
+  "files": [
+    "extensions",
+    "jev-router.example.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/jev-router.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

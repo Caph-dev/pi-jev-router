@@ -1,0 +1,24 @@
+{
+  "provider": "codex-sub2api",
+  "models": {
+    "complex": "gpt-6-astra",
+    "standard": "gpt-6.1-sol",
+    "implementation": "gpt-6-luna",
+    "direct": null
+  },
+  "virtual": {
+    "provider": "jev",
+    "id": "auto",
+    "name": "Auto (Jev)",
+    "thinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+    "contextWindow": 272000,
+    "maxTokens": 128000
+  },
+  "classifier": {
+    "provider": "typesafe",
+    "id": "jev-latest"
+  },
+  "threshold": 0.5,
+  "promptLimit": 16000,
+  "debug": false
+}

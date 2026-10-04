@@ -1,0 +1,13 @@
+# dependencies (pi installs package dependencies itself)
+node_modules/
+
+# macOS
+.DS_Store
+
+# local scratch
+*.log
+.env
+.env.*
+
+# machine-local config override
+jev-router.local.json
