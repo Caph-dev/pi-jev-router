@@ -185,6 +185,12 @@ prompt cache 失效的代价。阶段状态存在会话分支上，压缩、分�
 
 **排查**：`JEV_ROUTER_DEBUG=1 pi --model jev/auto`，或配置里 `"debug": true`。
 
+## Development
+
+Developing from a checkout: `pi install /Users/caph/Workspace/pi-packages/pi-jev-router` loads the
+extension in place, so edits take effect on the next pi start. Maintainer notes for cutting a release
+live in [RELEASING.md](./RELEASING.md).
+
 ## License
 
 MIT
