@@ -11,3 +11,6 @@ node_modules/
 
 # machine-local config override
 jev-router.local.json
+
+# npm pack output
+*.tgz

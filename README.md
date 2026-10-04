@@ -32,6 +32,9 @@ This is a configurable package version of pi's `examples/extensions/jev-router.t
 ## Install
 
 ```sh
+# from npm
+pi install npm:@caph/pi-jev-router
+
 # from git
 pi install git:github.com/Caph-dev/pi-jev-router
 
@@ -39,7 +42,7 @@ pi install git:github.com/Caph-dev/pi-jev-router
 pi install ./pi-jev-router
 
 # one-off, without installing
-pi -e ./extensions/jev-router.ts --model jev/auto
+pi -e npm:@caph/pi-jev-router --model jev/auto
 ```
 
 Then pick the model:
@@ -160,8 +163,8 @@ of that model. The same output is available with `"debug": true` in the config f
 `edit`/`write` 之后，整个会话切到 `models.implementation`，一个会话只切一次模型，只付一次
 prompt cache 失效的代价。阶段状态存在会话分支上，压缩、分叉、resume 都保留。
 
-**安装**：`pi install git:github.com/Caph-dev/pi-jev-router`，然后 `pi --model jev/auto`；只想试一次用
-`pi -e ./extensions/jev-router.ts --model jev/auto`。
+**安装**：`pi install npm:@caph/pi-jev-router`（或 `pi install git:github.com/Caph-dev/pi-jev-router`），然后
+`pi --model jev/auto`；只想试一次用 `pi -e npm:@caph/pi-jev-router --model jev/auto`。
 
 **配置**：优先级 `$JEV_ROUTER_CONFIG` > `~/.pi/agent/jev-router.json` > `<项目>/.pi/jev-router.json`，
 缺文件用内置默认值（`openai-codex` 的 gpt-5.6-sol / terra / luna），改完配置需要重启 pi。最小配置：

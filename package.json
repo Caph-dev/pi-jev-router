@@ -1,5 +1,5 @@
 {
-  "name": "pi-jev-router",
+  "name": "@caph/pi-jev-router",
   "version": "0.1.0",
   "description": "Jev-routed two-phase virtual model for pi: plan on a strong model, implement on a cheap one.",
   "keywords": [
@@ -13,6 +13,7 @@
     "classifier"
   ],
   "license": "MIT",
+  "author": "Caph-dev",
   "type": "module",
   "repository": {
     "type": "git",
@@ -26,6 +27,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "pi": {
     "extensions": [
       "./extensions/jev-router.ts"
