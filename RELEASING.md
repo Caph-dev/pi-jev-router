@@ -102,7 +102,7 @@ a non-zero status.
 ## Gotchas
 
 - **Never have two installs of this extension loaded.** Developing from a checkout
-  (`pi install /Users/caph/Workspace/pi-packages/pi-jev-router`) and also installing
+  (`pi install ./path/to/pi-jev-router`) and also installing
   `npm:@caph42/pi-jev-router` registers `jev/auto` twice. Pick one: local path while editing, npm
   when you want to test the released artifact.
 - `publishConfig.access = "public"` is required: scoped packages are private by default.

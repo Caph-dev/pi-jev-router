@@ -1,5 +1,5 @@
 {
-  "provider": "codex-sub2api",
+  "provider": "openai-codex",
   "models": {
     "complex": "gpt-6-astra",
     "standard": "gpt-6.1-sol",
