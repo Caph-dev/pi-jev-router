@@ -1,6 +1,6 @@
 {
   "name": "@caph42/pi-jev-router",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Jev-routed two-phase virtual model for pi: plan on a strong model, implement on a cheap one.",
   "keywords": [
     "pi-package",
