@@ -27,8 +27,9 @@
  * A missing file is fine; a malformed one fails loudly at startup. See `jev-router.example.json`
  * and the README for every key.
  *
- * Requirements: at least two configured models for planning. The classifier is optional: without
- * TypeSafe credentials, planning always uses the standard model.
+ * Requirements: the catalog must hold the configured models. By default those are three models of
+ * pi's `openai-codex` provider, so an OpenAI Codex login is enough and no config file is needed. The
+ * classifier is optional: without TypeSafe credentials, planning always uses the standard model.
  *
  * Usage:
  *   pi -e ./extensions/jev-router.ts --model jev/auto   (one-off, no install)
@@ -85,7 +86,8 @@ export interface RouterConfig {
 	debug: boolean;
 }
 
-const DEFAULT_CONFIG: RouterConfig = {
+/** Built-in defaults; exported so tests can assert what a config file leaves untouched. */
+export const DEFAULT_CONFIG: RouterConfig = {
 	provider: "openai-codex",
 	models: {
 		complex: "gpt-6-astra",
@@ -203,21 +205,32 @@ function thinkingLevelsField(value: unknown, path: string): ModelThinkingLevel[]
 }
 
 const CONFIG_KEYS = new Set(["provider", "models", "virtual", "classifier", "threshold", "promptLimit", "debug"]);
+const MODEL_KEYS = new Set(["complex", "standard", "implementation", "direct"]);
+const VIRTUAL_KEYS = new Set(["provider", "id", "name", "thinkingLevels", "contextWindow", "maxTokens"]);
+const CLASSIFIER_KEYS = new Set(["provider", "id"]);
+
+/** Report keys the router never reads, so a typo cannot change routing silently. */
+function warnUnknownKeys(container: Record<string, unknown>, path: string, prefix: string, allowed: Set<string>): void {
+	for (const key of Object.keys(container))
+		if (!allowed.has(key)) warn(`${path}: ignoring unknown key ${JSON.stringify(prefix ? `${prefix}.${key}` : key)}`);
+}
 
 function mergeConfig(base: RouterConfig, path: string): { config: RouterConfig; found: boolean } {
 	const patch = readConfigFile(path);
 	if (!patch) return { config: base, found: false };
-	for (const key of Object.keys(patch))
-		if (!CONFIG_KEYS.has(key)) warn(`${path}: ignoring unknown key ${JSON.stringify(key)}`);
+	warnUnknownKeys(patch, path, "", CONFIG_KEYS);
 
 	const models = objectField(patch.models, path, "models");
 	const virtual = objectField(patch.virtual, path, "virtual");
+	warnUnknownKeys(models, path, "models", MODEL_KEYS);
+	warnUnknownKeys(virtual, path, "virtual", VIRTUAL_KEYS);
 
 	let classifier = base.classifier;
 	const classifierValue = patch.classifier;
 	if (classifierValue === null || classifierValue === false) classifier = null;
 	else if (classifierValue !== undefined) {
 		const container = objectField(classifierValue, path, "classifier");
+		warnUnknownKeys(container, path, "classifier", CLASSIFIER_KEYS);
 		classifier = {
 			provider: stringField(container.provider, path, "classifier.provider") ?? base.classifier?.provider ?? "typesafe",
 			id: stringField(container.id, path, "classifier.id") ?? base.classifier?.id ?? "jev-latest",
@@ -253,7 +266,7 @@ function mergeConfig(base: RouterConfig, path: string): { config: RouterConfig; 
 	};
 }
 
-function loadConfig(): { config: RouterConfig; files: string[] } {
+export function loadConfig(): { config: RouterConfig; files: string[] } {
 	let config = DEFAULT_CONFIG;
 	const files: string[] = [];
 	for (const path of configFileCandidates()) {
@@ -296,6 +309,11 @@ export default function (pi: ExtensionAPI) {
 	};
 	const implementation = config.models.implementation;
 	const direct = config.models.direct ?? implementation ?? config.models.standard;
+	/** Where to send a user whose config points at a model they do not have. */
+	const configLocation =
+		files.length > 0
+			? files.join(" or ")
+			: `${join(agentDir(), CONFIG_FILE_NAME)} (or a file named by $${CONFIG_ENV})`;
 
 	log(`config: ${files.length > 0 ? files.join(", ") : "built-in defaults"}`);
 	log(
@@ -328,8 +346,8 @@ export default function (pi: ExtensionAPI) {
 				const model = ctx.modelRegistry.find(config.provider, id);
 				if (!model)
 					fail(
-						`model ${config.provider}/${id} is not in the catalog. Set "provider" and "models" in ` +
-							`${files.length > 0 ? files.join(" or ") : `~/.pi/agent/${CONFIG_FILE_NAME}`} to models you have configured.`,
+						`model ${config.provider}/${id} is not in the catalog. Run \`pi --list-models\` and set ` +
+							`"provider" and "models" in ${configLocation} to models you have configured.`,
 					);
 				syncLimits(model);
 				const thinkingLevel = dispatchLevel(pi, request, config, id);
