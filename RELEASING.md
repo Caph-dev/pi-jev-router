@@ -71,6 +71,10 @@ jev       auto   272K     128K     yes       yes
 | minor | new config keys, new routing behavior that keeps existing `jev-router.json` files working |
 | major | config keys renamed or removed, changed defaults, or anything that changes which model an existing config routes to |
 
+Before 1.0, a **major**-worthy change ships as a **minor** one (0.1.0 → 0.2.0). npm's caret range
+for `0.1.0` never picks up `0.2.0`, so an explicit upgrade is already required, and a 1.0.0 would
+promise a config surface that is still moving. Reserve a real 1.0.0 for when it stops.
+
 Prereleases stay off the `latest` tag, so nobody installs them by accident:
 
 ```sh
@@ -128,4 +132,4 @@ npm 发布是异步的：返回 `202` 且“being processed”，读接口可能
 `pi -e npm:@caph42/pi-jev-router --list-models jev` 能装能加载。
 
 改动配置键（新增/改名/改默认值）时，同步更新 README 表格和 `jev-router.example.json`；破坏已有
-`jev-router.json` 的改动要发 major。
+`jev-router.json` 的改动，1.0 之前发 minor（0.1.0 → 0.2.0），1.0 之后再发 major。
