@@ -5,9 +5,9 @@ one**. It registers one selectable model (default `jev/auto`) and routes each re
 by how demanding the task is.
 
 ```
-                     ┌── Jev: complex ──→ gpt-5.6-sol     ┐
- user message ──────→│                                   │──→ first edit ──→ gpt-5.6-luna
-                     └── otherwise ─────→ gpt-5.6-terra  ┘     (rest of the session)
+                     ┌── Jev: complex ──→ gpt-6-astra     ┐
+ user message ──────→│                                    │──→ first edit ──→ gpt-6-luna
+                     └── otherwise ─────→ gpt-6.1-sol     ┘     (rest of the session)
 ```
 
 - **Planning** — the first user message of a session is rated by the Jev classifier. Demanding work
@@ -88,9 +88,9 @@ Configuration is read when pi starts — restart pi after editing it.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `provider` | `openai-codex` | Provider that holds the physical models. |
-| `models.complex` | `gpt-5.6-sol` | Planning model for demanding work. |
-| `models.standard` | `gpt-5.6-terra` | Planning model otherwise, and the fallback when the classifier is unavailable or fails. |
-| `models.implementation` | `gpt-5.6-luna` | Implementation model. `null` keeps every request on the planning model. |
+| `models.complex` | `gpt-6-astra` | Planning model for demanding work. |
+| `models.standard` | `gpt-6.1-sol` | Planning model otherwise, and the fallback when the classifier is unavailable or fails. |
+| `models.implementation` | `gpt-6-luna` | Implementation model. `null` keeps every request on the planning model. |
 | `models.direct` | `null` | Model for requests outside the agent loop (compaction summaries, titles). `null` follows `implementation`, then `standard`. |
 | `virtual.provider` | `jev` | Provider the virtual model is listed under. A provider id pi has no physical models for is always available. |
 | `virtual.id` | `auto` | Model id, so the default selection is `jev/auto`. Must not collide with a physical model of that provider. |
@@ -167,7 +167,7 @@ prompt cache 失效的代价。阶段状态存在会话分支上，压缩、分�
 `pi --model jev/auto`；只想试一次用 `pi -e npm:@caph42/pi-jev-router --model jev/auto`。
 
 **配置**：优先级 `$JEV_ROUTER_CONFIG` > `~/.pi/agent/jev-router.json` > `<项目>/.pi/jev-router.json`，
-缺文件用内置默认值（`openai-codex` 的 gpt-5.6-sol / terra / luna），改完配置需要重启 pi。最小配置：
+缺文件用内置默认值（`openai-codex` 的 gpt-6-astra / gpt-6.1-sol / gpt-6-luna），改完配置需要重启 pi。最小配置：
 
 ```json
 {

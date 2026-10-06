@@ -6,7 +6,7 @@
  *
  * - Planning: the *complex* model for demanding work, the *standard* model otherwise. The Jev
  *   classifier rates the last user message; planning stays on the chosen model.
- * - Implementation: the *implementation* model (default GPT-5.6 Luna).
+ * - Implementation: the *implementation* model (default `gpt-6-luna`).
  *
  * The planning model explores, plans, and makes the first edit. After the first successful `edit`
  * or `write` tool call, the next request of the same turn goes to the implementation model, and the
@@ -88,9 +88,9 @@ export interface RouterConfig {
 const DEFAULT_CONFIG: RouterConfig = {
 	provider: "openai-codex",
 	models: {
-		complex: "gpt-5.6-sol",
-		standard: "gpt-5.6-terra",
-		implementation: "gpt-5.6-luna",
+		complex: "gpt-6-astra",
+		standard: "gpt-6.1-sol",
+		implementation: "gpt-6-luna",
 		direct: null,
 	},
 	virtual: {
