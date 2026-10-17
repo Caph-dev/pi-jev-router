@@ -4,9 +4,9 @@ A virtual model for [pi](https://pi.dev) with fixed, adaptive and shadow routing
 `jev/auto`; the router dispatches to configured complex, standard and implementation models
 on one provider. It does not infer model capability from names or prices.
 
-This worktree builds on feat/adaptive-routing and incorporates the verified routing protections
-from the main comparison. See [final validation](plans/003-final-router.md). Earlier live reports
-under plans/ describe the earlier implementation, not this worktree's online performance.
+Version 1.0.0 integrates feat/adaptive-routing with guarded handoff, uniform cancellation and
+retry handling, shadow routing and optional diagnostics. See [final validation](plans/003-final-router.md).
+Earlier live reports under plans/ describe the earlier implementation, not this release's online performance.
 
 ## Strategies
 
@@ -30,21 +30,20 @@ requests bypass classification and state, but respect cancellation.
 - Pi with virtual models, persistent branch IDs and `buildSessionProjection()`. Verified against
   Pi 1.3.0. Adaptive requires these APIs. Without projection support fixed/shadow send no classifier
   input and cannot recognize writes; initialization can still select standard or reuse planning.
-- Node compatible with the installed Pi; this checkout's native TypeScript tests ran on Node 24.15.0.
+- Node compatible with the installed Pi; this release's native TypeScript tests ran on Node 24.15.0.
 - Configured physical models present in `pi --list-models`. Defaults are openai-codex:
   gpt-6-astra / gpt-6.1-sol / gpt-6-luna.
 - Optional TypeSafe credentials for Jev. `classifier: null` (or false) disables classification.
 
 ~~~sh
-# Load this checkout once. A published package does not contain these uncommitted changes.
+# Install the published release:
+pi install npm:@caph42/pi-jev-router@1.0.0
+# Or load a local checkout once:
 pi -e ./extensions/jev-router.ts --model jev/auto
-# Or install the local checkout:
-pi install /absolute/path/to/pi-jev-router-final
 ~~~
 
 Choose Auto (Jev) in /model, or configure defaultProvider/defaultModel. Avoid loading another
-installed copy of the router at the same time. Package installation and personal configuration
-are separate from creating this worktree.
+installed copy of the router at the same time. Package installation does not change personal routing configuration.
 
 ## Configuration
 
@@ -244,7 +243,7 @@ not classification accuracy, production latency, model-task quality or savings.
 scripts/live-agent-smoke.ts remains an explicitly billable, opt-in runner using configured
 codex-sub2api sol/luna and typesafe/jev-latest. It runs outside npm test in isolated temporary
 resources. Its core scenario requires the real classifier to satisfy the guarded handoff threshold;
-an untriggered path cannot count as validated. This worktree has not rerun the live scenarios.
+an untriggered path cannot count as validated. This release has not rerun the live scenarios.
 After reviewing the script and authorizing calls, use:
 
 ~~~sh

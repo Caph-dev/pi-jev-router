@@ -33,7 +33,7 @@ cd ~/Workspace/pi-packages/pi-jev-router
 
 git status --short          # must be clean
 git pull                    # stay in sync with origin
-npm pack --dry-run          # name, version, and the 5 files that make up the tarball
+npm pack --dry-run          # name, version, and the 6 files that make up the tarball
 npm version patch           # or minor / major — see below
 git push --follow-tags
 npm publish --access public # no browser prompt once the token above is in place
@@ -71,9 +71,10 @@ jev       auto   272K     128K     yes       yes
 | minor | new config keys, new routing behavior that keeps existing `jev-router.json` files working |
 | major | config keys renamed or removed, changed defaults, or anything that changes which model an existing config routes to |
 
-Before 1.0, a **major**-worthy change ships as a **minor** one (0.1.0 → 0.2.0). npm's caret range
-for `0.1.0` never picks up `0.2.0`, so an explicit upgrade is already required, and a 1.0.0 would
-promise a config surface that is still moving. Reserve a real 1.0.0 for when it stops.
+Version 1.0.0 establishes the fixed/adaptive/shadow configuration surface. Future changes to
+existing routing defaults or configuration compatibility require a major release. Additive,
+compatible options use minor releases; fixes use patch releases. Versions before 1.0 used minor
+releases for breaking changes.
 
 Prereleases stay off the `latest` tag, so nobody installs them by accident:
 
@@ -111,7 +112,7 @@ a non-zero status.
   when you want to test the released artifact.
 - `publishConfig.access = "public"` is required: scoped packages are private by default.
 - The `pi` key in `package.json` points pi at `./extensions/jev-router.ts`; the `files` array decides
-  what the tarball contains (5 files today). Anything outside it is not shipped.
+  what the tarball contains (6 files today, including extensions/lib/diagnostics.ts). Anything outside it is not shipped.
 - `pi-package` must stay in `keywords` for the pi.dev package gallery to pick the package up; the
   gallery is not instant.
 - Users upgrade with `pi update --extensions`.
@@ -124,7 +125,7 @@ Read and write、勾 **Bypass two-factor authentication**），写进 `~/.npmrc`
 `//registry.npmjs.org/:_authToken=...`。换上新 token 后**不要**执行 `npm logout`（会把新 token
 一起吊销）。
 
-发版流程：`git status` 干净 → `npm pack --dry-run` 确认名字/版本/5 个文件 → `npm version
+发版流程：`git status` 干净 → `npm pack --dry-run` 确认名字/版本/6 个文件 → `npm version
 patch|minor|major` → `git push --follow-tags` → `npm publish --access public`。
 
 npm 发布是异步的：返回 `202` 且“being processed”，读接口可能再 404 一两分钟，**不要急着重发**，
@@ -132,4 +133,4 @@ npm 发布是异步的：返回 `202` 且“being processed”，读接口可能
 `pi -e npm:@caph42/pi-jev-router --list-models jev` 能装能加载。
 
 改动配置键（新增/改名/改默认值）时，同步更新 README 表格和 `jev-router.example.json`；破坏已有
-`jev-router.json` 的改动，1.0 之前发 minor（0.1.0 → 0.2.0），1.0 之后再发 major。
+`jev-router.json` 的配置或路由默认行为时发 major；兼容的新配置发 minor，修复发 patch。

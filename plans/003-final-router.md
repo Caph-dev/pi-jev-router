@@ -8,7 +8,7 @@
 - 创建后复制 feat 的全部 20 个 tracked / 非忽略 untracked 文件，并逐文件验证 SHA-256 一致。
 - 原始指纹：[003-feat-baseline.json](003-feat-baseline.json)。复制未包含被忽略的依赖目录或个人配置。
 - 完成时再次核验：feat 20 个文件、main 41 个文件与操作前完全一致。
-- 此工作树未 commit、push、发布或安装到用户 Pi；package version 保持 0.2.0，不代表新发布版本。
+- 本文记录整合验收当时的状态：尚未 commit、push、发布或安装，版本为 0.2.0。随后按用户要求提交到 feat/final-router、快进合并 main，并准备 1.0.0 主版本发布；最新状态以 Git main/tag 和 npm registry 为准。
 
 ## 实现结果
 
