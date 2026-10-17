@@ -241,3 +241,67 @@ describe("validation", () => {
 		assertFails(/"debug" must be true or false/, write(tempDir(), { debug: "yes" }));
 	});
 });
+
+describe("adaptive M1 configuration", () => {
+	it("merges nested fields without mutating defaults", () => {
+		const before = JSON.stringify(DEFAULT_CONFIG);
+		const { config } = load(write(tempDir(), { strategy: "adaptive", adaptive: { handoffTools: ["save", "save"], decisionTimeoutMs: 19 } }));
+		assert.equal(config.strategy, "adaptive");
+		assert.deepEqual(config.adaptive.handoffTools, ["save"]);
+		assert.equal(config.adaptive.decisionTimeoutMs, 19);
+		assert.equal(JSON.stringify(DEFAULT_CONFIG), before);
+	});
+	it("allows an empty handoff whitelist", () => {
+		assert.deepEqual(load(write(tempDir(), { adaptive: { handoffTools: [] } })).config.adaptive.handoffTools, []);
+	});
+	for (const value of [null, false, "other", 1]) it("rejects strategy " + JSON.stringify(value), () => {
+		assertFails(/strategy/, write(tempDir(), { strategy: value }));
+	});
+	for (const value of [null, false, [], "x"]) it("rejects adaptive " + JSON.stringify(value), () => {
+		assertFails(/adaptive/, write(tempDir(), { adaptive: value }));
+	});
+	for (const value of [null, "write", [""], [1], ["bash"], ["codemode"]]) it("rejects handoffTools " + JSON.stringify(value), () => {
+		assertFails(/adaptive.handoffTools/, write(tempDir(), { adaptive: { handoffTools: value } }));
+	});
+	for (const value of [null, 0, 60001, 1.5, "3000"]) it("rejects decisionTimeoutMs " + JSON.stringify(value), () => {
+		assertFails(/adaptive.decisionTimeoutMs/, write(tempDir(), { adaptive: { decisionTimeoutMs: value } }));
+	});
+	it("warns and ignores unknown adaptive keys", () => {
+		const messages = captureWarnings();
+		assert.deepEqual(load(write(tempDir(), { adaptive: { typo: true } })).config, DEFAULT_CONFIG);
+		assert.deepEqual(reasons(messages), ['ignoring unknown key "adaptive.typo"']);
+	});
+});
+
+describe("final routing configuration", () => {
+	it("accepts shadow, guarded overrides and diagnostic recording", () => {
+		const { config } = load(write(tempDir(), { strategy: "shadow", diagnostics: { record: true }, adaptive: { handoffPolicy: "first-write", handoffThreshold: 0, maxHandoffContextTokens: 123 } }));
+		assert.equal(config.strategy, "shadow"); assert.equal(config.diagnostics.record, true);
+		assert.equal(config.adaptive.handoffPolicy, "first-write"); assert.equal(config.adaptive.handoffThreshold, 0);
+		assert.equal(config.adaptive.maxHandoffContextTokens, 123);
+	});
+	for (const [key, values] of [["handoffPolicy", [null, "other"]], ["handoffThreshold", [null, -1, 1.1, "0.2"]], ["maxHandoffContextTokens", [null, 0, 1.1, "50000"]]] as const)
+		for (const value of values) it("rejects " + key + "=" + JSON.stringify(value), () => {
+			assertFails(new RegExp("adaptive." + key), write(tempDir(), { adaptive: { [key]: value } }));
+		});
+	for (const diagnostics of [null, false, [], { record: null }, { record: "true" }]) it("rejects invalid diagnostics " + JSON.stringify(diagnostics), () => {
+		assertFails(/diagnostics/, write(tempDir(), { diagnostics }));
+	});
+});
+
+describe("M2 history configuration", () => {
+	it("keeps history off by default and merges personal/project fields", () => {
+		assert.equal(DEFAULT_CONFIG.adaptive.contextMode, "last-user-only");
+		const root = tempDir(), project = join(root, "project");
+		write(join(root, "agent"), { strategy: "adaptive", adaptive: { contextMode: "recent-conversation", historyMaxTurns: 2 } });
+		write(join(project, ".pi"), { adaptive: { historyCharLimit: 123 } });
+		delete process.env[CONFIG_ENV]; process.env[AGENT_ENV] = join(root, "agent"); process.chdir(project);
+		const { config } = loadConfig();
+		assert.equal(config.adaptive.historyMaxTurns, 2); assert.equal(config.adaptive.historyCharLimit, 123);
+		assert.equal(config.adaptive.contextMode, "recent-conversation"); assert.equal(config.adaptive.decisionTimeoutMs, 3000);
+	});
+	for (const [key, values] of [["contextMode", [null, false, "all"]], ["historyMaxTurns", [null, 0, 9, 1.5]], ["historyCharLimit", [null, 0, 32001, "8000"]]] as const)
+		for (const value of values) it("rejects " + key + "=" + JSON.stringify(value), () => {
+			assertFails(new RegExp("adaptive." + key), write(tempDir(), { adaptive: { [key]: value } }));
+		});
+});

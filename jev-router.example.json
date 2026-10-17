@@ -1,4 +1,16 @@
 {
+  "strategy": "fixed",
+  "diagnostics": { "record": false },
+  "adaptive": {
+    "handoffTools": ["edit", "write"],
+    "handoffPolicy": "guarded",
+    "handoffThreshold": 0.2,
+    "maxHandoffContextTokens": 50000,
+    "decisionTimeoutMs": 3000,
+    "contextMode": "last-user-only",
+    "historyMaxTurns": 4,
+    "historyCharLimit": 8000
+  },
   "provider": "openai-codex",
   "models": {
     "complex": "gpt-6-astra",

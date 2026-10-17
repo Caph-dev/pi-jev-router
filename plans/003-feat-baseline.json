@@ -1,0 +1,29 @@
+{
+  "source": "/Users/caph/Workspace/pi-packages/pi-jev-router-adaptive-routing",
+  "sourceBranch": "feat/adaptive-routing",
+  "sourceHead": "bb854b2e8f91b70dfc95a0a679966d37dd3348fa",
+  "destinationBranch": "feat/final-router",
+  "note": "Hashes of the complete tracked and nonignored untracked feat worktree snapshot, before final-router edits. Source HEAD alone does not contain this implementation.",
+  "sha256": {
+    ".gitignore": "fd277dd89be51f95331e97e38edf075a2f2350015958acfa1b87c4bc63d68ce9",
+    "LICENSE": "55a000e40d22e0a4a525e92096bd8724d79272bcecb49e774ef3cef3f5092674",
+    "README.md": "49dba2985aa0f5993eef3fef106975007a10442498f3bb253b3eb5d54f1ae7b4",
+    "RELEASING.md": "2471c35646c5d96335a4c67fcae339c525c9d0e113393c879f57940bcfa6c410",
+    "extensions/jev-router.ts": "324519819b3edd99a640f715cc988851eae3f47509586773bc7fec39b6e77f38",
+    "jev-router.example.json": "b3e47e2bb733caa98c907762eb64bd3ab7308f8cf0a9d586324bd9555b8ed587",
+    "package.json": "1effd6940c6b6b777c7d4f729391af833db9485b943624f9aa5ffa36aab31fa1",
+    "plans/.html-cache/state.json": "2efbab27365010fdf06b074debba81d02086e2822707c11acd9e506c05bb3652",
+    "plans/002-p1-accounting-fixed-codemode.md": "2b2a2483ed7d061de6026bb491a29aaeb2deab8ec447bceba2a94925249739eb",
+    "plans/README.md": "5392d4cc1d4adffd910483e09119ed84f5e67db4b729f5edaa8110c8c6180051",
+    "plans/jev-hiroute-review.html": "724662100ff3d21b1d50f2283971c794e587e88079461f26d5e3382f7b92ca39",
+    "plans/jev-hiroute-review.md": "2fb26c8dc606bfac68c9098b76d49ad236974bbfe8e7dd5cdfdf0a79e87b5be9",
+    "plans/live-smoke-results.json": "4f0d3e5393f6e333f056a4298322a774c342b67b5725a5e787d4f56a5bb1e526",
+    "plans/p1-live-smoke-results.json": "3f6317d2be28c607dcf05dc25b169065e0f7a582bf5ef3c455e97cb6525194f0",
+    "plans/validation.md": "5013acc61b6edad5ec87f2a7ac5df5cb71134511e34db19366abb6663a308c77",
+    "scripts/live-agent-smoke.ts": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+    "test/config.test.ts": "42bb49b5c526ce04032305576b8f28119b4180e01980c47d3a4108e55302314b",
+    "test/host-session.test.ts": "ad28a8716eae59975a61b6617a5555f17f0cf9b9d722dcec68d1e34544185a73",
+    "test/route.test.ts": "f4160108e7b97cb7648c3298751f13c37ccc4f237f0e8e075c91ee6f6ed4e48c",
+    "test/usage.test.ts": "12cc70aa76d6a8166b5f7ed3cef54132edd20af44da7794d54d54d38b86744fd"
+  }
+}

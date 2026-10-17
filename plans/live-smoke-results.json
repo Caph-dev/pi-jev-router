@@ -1,0 +1,958 @@
+{
+  "schemaVersion": 1,
+  "pricing": "Classifier catalog zero costs are unknown pricing, not evidence of free calls. Chat costs are host estimates, not an independently checked bill.",
+  "scope": "Primary successful scenario runs only; exploratory calls are not included in these totals.",
+  "scenarios": {
+    "core": {
+      "scenario": "core",
+      "startedAt": "2026-10-16T07:53:32.796Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "real Codemode nested write hands sol planning to luna; state saved before dispatch",
+        "fresh runtime resumes persisted implementation; same user continuation does not classify",
+        "real complex classification upgrades luna to sol; post-write continuation remains locked complex",
+        "simple new user after upgrade stays complex without classifier",
+        "real compaction uses direct luna; reopen preserves complex state and user deduplication",
+        "persisted fork inherits selected ancestor implementation while original remains complex"
+      ],
+      "runs": [
+        {
+          "label": "initial",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+          "routes": [
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "ccb25b33"
+              }
+            },
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 0,
+              "durationMs": 634,
+              "usage": {
+                "input": 409,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 442,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "ccb25b33"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "ccb25b33"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "toolUse"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna",
+            "slot": "implementation",
+            "handoff": "locked",
+            "stageSeq": 2,
+            "lastEvaluatedUserEntryId": "ccb25b33",
+            "stageStartEntryId": "5007161e"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+            "sessionId": "01a143b3-b385-739a-93e0-94090d4fc54e",
+            "userMessages": 1,
+            "assistantMessages": 2,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 5,
+            "tokens": {
+              "input": 5711,
+              "output": 50,
+              "cacheRead": 4608,
+              "cacheWrite": 0,
+              "total": 10369
+            },
+            "cost": 0.01065138,
+            "contextUsage": {
+              "tokens": 5281,
+              "contextWindow": 272000,
+              "percent": 1.9415441176470587
+            }
+          }
+        },
+        {
+          "label": "resume",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            },
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "reason": "continuation",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "reason": "direct",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": null
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 1,
+              "durationMs": 737,
+              "usage": {
+                "input": 467,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 500,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "7993c47f",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            },
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "toolUse"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "complex",
+            "handoff": "locked",
+            "stageSeq": 3,
+            "lastEvaluatedUserEntryId": "25388412",
+            "stageStartEntryId": "7993c47f"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+            "sessionId": "01a143b3-b385-739a-93e0-94090d4fc54e",
+            "userMessages": 3,
+            "assistantMessages": 6,
+            "toolCalls": 2,
+            "toolResults": 2,
+            "totalMessages": 12,
+            "tokens": {
+              "input": 13869,
+              "output": 913,
+              "cacheRead": 28160,
+              "cacheWrite": 0,
+              "total": 42942
+            },
+            "cost": 0.01940292,
+            "contextUsage": {
+              "tokens": null,
+              "contextWindow": 353000,
+              "percent": null
+            }
+          }
+        },
+        {
+          "label": "after-compact",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "25388412",
+                "stageStartEntryId": "7993c47f"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "complex",
+            "handoff": "locked",
+            "stageSeq": 3,
+            "lastEvaluatedUserEntryId": "25388412",
+            "stageStartEntryId": "7993c47f"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T07-53-32-805Z_01a143b3-b385-739a-93e0-94090d4fc54e.jsonl",
+            "sessionId": "01a143b3-b385-739a-93e0-94090d4fc54e",
+            "userMessages": 3,
+            "assistantMessages": 7,
+            "toolCalls": 2,
+            "toolResults": 2,
+            "totalMessages": 13,
+            "tokens": {
+              "input": 14466,
+              "output": 918,
+              "cacheRead": 33024,
+              "cacheWrite": 0,
+              "total": 48408
+            },
+            "cost": 0.02113332,
+            "contextUsage": {
+              "tokens": 5466,
+              "contextWindow": 353000,
+              "percent": 1.548441926345609
+            }
+          }
+        },
+        {
+          "label": "fork",
+          "sessionFile": "<temporary-run>/fork-storage/2026-10-16T07-54-30-444Z_01a143b4-94ac-739a-93e0-940e6c4d80a7.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "ccb25b33",
+                "stageStartEntryId": "5007161e"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna",
+            "slot": "implementation",
+            "handoff": "locked",
+            "stageSeq": 2,
+            "lastEvaluatedUserEntryId": "ccb25b33",
+            "stageStartEntryId": "5007161e"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/fork-storage/2026-10-16T07-54-30-444Z_01a143b4-94ac-739a-93e0-940e6c4d80a7.jsonl",
+            "sessionId": "01a143b4-94ac-739a-93e0-940e6c4d80a7",
+            "userMessages": 1,
+            "assistantMessages": 3,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 6,
+            "tokens": {
+              "input": 11007,
+              "output": 55,
+              "cacheRead": 4608,
+              "cacheWrite": 0,
+              "total": 15670
+            },
+            "cost": 0.01118348,
+            "contextUsage": {
+              "tokens": 5301,
+              "contextWindow": 272000,
+              "percent": 1.9488970588235295
+            }
+          }
+        }
+      ],
+      "accounting": {
+        "assistantTokens": {
+          "input": 5711,
+          "output": 50,
+          "cacheRead": 4608,
+          "cacheWrite": 0
+        },
+        "sessionTokens": {
+          "input": 5711,
+          "output": 50,
+          "cacheRead": 4608,
+          "cacheWrite": 0,
+          "total": 10369
+        },
+        "externalClassifierUsage": {
+          "input": 409,
+          "output": 33,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 442,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "delta": {
+          "input": 0,
+          "output": 0
+        },
+        "directClassifierIncluded": false,
+        "note": "Session totals equal assistant totals; direct classifier is excluded."
+      },
+      "status": "passed",
+      "finishedAt": "2026-10-16T07:54:37.788Z",
+      "httpCount": 12,
+      "chatDispatchCount": 10,
+      "diskAudit": {
+        "compactions": [
+          {
+            "id": "e9c32867",
+            "firstKeptEntryId": "315773f7",
+            "tokensBefore": 5680,
+            "usage": {
+              "input": 1790,
+              "output": 454,
+              "cacheRead": 8064,
+              "cacheWrite": 0,
+              "reasoning": 47,
+              "totalTokens": 10308,
+              "cost": {
+                "input": 0.00017900000000000001,
+                "output": 0.000227,
+                "cacheRead": 0.00008064,
+                "cacheWrite": 0,
+                "total": 0.00048664000000000004
+              }
+            }
+          }
+        ],
+        "accountingAfterCompaction": {
+          "assistantUsage": {
+            "input": 12676,
+            "output": 464,
+            "cacheRead": 24960,
+            "cacheWrite": 0
+          },
+          "compactionUsage": {
+            "input": 1790,
+            "output": 454,
+            "cacheRead": 8064,
+            "cacheWrite": 0
+          },
+          "toolsUsage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "otherUsage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "sessionTokens": {
+            "input": 14466,
+            "output": 918,
+            "cacheRead": 33024,
+            "cacheWrite": 0,
+            "total": 48408
+          },
+          "externalClassifierUsage": {
+            "input": 876,
+            "output": 66,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "directClassifierIncluded": false
+        }
+      }
+    },
+    "cancel": {
+      "scenario": "cancel",
+      "startedAt": "2026-10-16T07:48:45.596Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "abort after real classifier HTTP start settles with zero chat requests and zero router state"
+      ],
+      "runs": [
+        {
+          "label": "cancel",
+          "sessionFile": "<temporary-run>/cancel/sessions/2026-10-16T07-48-45-604Z_01a143af-51a4-771a-9857-9c9e1ba2edd5.jsonl",
+          "routes": [],
+          "classifiers": [
+            {
+              "stopReason": "aborted",
+              "durationMs": 30
+            }
+          ],
+          "dispatches": [],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "caller-abort"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "aborted"
+            },
+            {
+              "type": "assistant-end",
+              "model": "auto",
+              "stopReason": "aborted"
+            }
+          ],
+          "finalState": null,
+          "stats": {
+            "sessionFile": "<temporary-run>/cancel/sessions/2026-10-16T07-48-45-604Z_01a143af-51a4-771a-9857-9c9e1ba2edd5.jsonl",
+            "sessionId": "01a143af-51a4-771a-9857-9c9e1ba2edd5",
+            "userMessages": 1,
+            "assistantMessages": 1,
+            "toolCalls": 0,
+            "toolResults": 0,
+            "totalMessages": 3,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            },
+            "cost": 0,
+            "contextUsage": {
+              "tokens": 1165,
+              "contextWindow": 272000,
+              "percent": 0.42830882352941174
+            }
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T07:48:45.650Z",
+      "httpCount": 1,
+      "chatDispatchCount": 0
+    },
+    "retry": {
+      "scenario": "retry",
+      "startedAt": "2026-10-16T07:48:45.596Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "injected 503 reaches host auto-retry; real LLM recovery keeps failed model/thinking and does not add stage"
+      ],
+      "runs": [
+        {
+          "label": "retry",
+          "sessionFile": "<temporary-run>/retry/sessions/2026-10-16T07-48-45-604Z_01a143af-51a4-720c-ae90-29fbff4c6148.jsonl",
+          "routes": [
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "32e888b9",
+                "stageStartEntryId": "32e888b9"
+              }
+            },
+            {
+              "reason": "retry",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "failedModel": "gpt-6.1-sol",
+              "failedThinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "locked",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "32e888b9",
+                "stageStartEntryId": "32e888b9"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "32e888b9",
+                "stageStartEntryId": "32e888b9"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "locked",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "32e888b9",
+                "stageStartEntryId": "32e888b9"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "injected-http-503"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "error"
+            },
+            {
+              "type": "auto_retry_start",
+              "attempt": 1
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "standard",
+            "handoff": "locked",
+            "stageSeq": 1,
+            "lastEvaluatedUserEntryId": "32e888b9",
+            "stageStartEntryId": "32e888b9"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/retry/sessions/2026-10-16T07-48-45-604Z_01a143af-51a4-720c-ae90-29fbff4c6148.jsonl",
+            "sessionId": "01a143af-51a4-720c-ae90-29fbff4c6148",
+            "userMessages": 1,
+            "assistantMessages": 2,
+            "toolCalls": 0,
+            "toolResults": 0,
+            "totalMessages": 4,
+            "tokens": {
+              "input": 5006,
+              "output": 5,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 5011
+            },
+            "cost": 0.010062,
+            "contextUsage": {
+              "tokens": 5011,
+              "contextWindow": 353000,
+              "percent": 1.4195467422096317
+            }
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T07:48:48.002Z",
+      "httpCount": 2,
+      "chatDispatchCount": 2
+    }
+  },
+  "exploratoryAttempts": [
+    {
+      "status": "failed-before-network",
+      "reason": "Initial smoke script string escaping; corrected before real requests."
+    },
+    {
+      "status": "partial-failed",
+      "checksPassed": 1,
+      "reason": "Direct low-level agent.continue() was an unsuitable resume probe and raised Error; no raw diagnostic stack retained. Replaced with public sendCustomMessage(triggerTurn)."
+    },
+    {
+      "status": "passed",
+      "checksPassed": 6,
+      "reason": "First complete core passed, but resume evidence snapshot was captured after a mutable createBranchedSession operation. Isolated fork creation and reran only core."
+    }
+  ]
+}

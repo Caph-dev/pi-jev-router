@@ -1,0 +1,1798 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="blueprint" data-mode="auto" data-style="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Answer me with HTML 0.4.9">
+<title>pi-jev-router 有限动态升级实施计划</title>
+<style>
+html[data-theme="blueprint"], html[data-theme="blueprint"][data-mode="light"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 0px;
+  --shadow: none;
+  --bw: 1.5px;
+  --head-font: var(--font-sans);
+  --bg: #f6f6f3;
+  --paper: #ffffff;
+  --ink: #16181d;
+  --ink-2: #4b5260;
+  --ink-3: #8b929e;
+  --line: #1d2026;
+  --line-2: #d6dae1;
+  --fill: #f3f5f8;
+  --accent: #1d5fbf;
+  --accent-bg: #e4ecf8;
+  --ok: #1d5fbf;
+  --ok-bg: #e4ecf8;
+  --err: #c62828;
+  --err-bg: #fbeaea;
+  --warn: #a8620a;
+  --warn-bg: #fdf3e2;
+  --head-bg: #16181d;
+  --head-fg: #ffffff;
+}
+html[data-theme="blueprint"][data-mode="dark"] {
+  --bg: #081322;
+  --paper: #0d1c31;
+  --ink: #e6edf7;
+  --ink-2: #a9b8cc;
+  --ink-3: #6b7f99;
+  --line: #c9d6e8;
+  --line-2: #23385a;
+  --fill: #12253f;
+  --accent: #6ea8ff;
+  --accent-bg: #16305a;
+  --ok: #6ea8ff;
+  --ok-bg: #16305a;
+  --err: #ff7070;
+  --err-bg: #3b1620;
+  --warn: #f0b14a;
+  --warn-bg: #3a2a10;
+  --head-bg: #e6edf7;
+  --head-fg: #081322;
+}
+@media (prefers-color-scheme: dark) {
+html[data-theme="blueprint"][data-mode="auto"] {
+  --bg: #081322;
+  --paper: #0d1c31;
+  --ink: #e6edf7;
+  --ink-2: #a9b8cc;
+  --ink-3: #6b7f99;
+  --line: #c9d6e8;
+  --line-2: #23385a;
+  --fill: #12253f;
+  --accent: #6ea8ff;
+  --accent-bg: #16305a;
+  --ok: #6ea8ff;
+  --ok-bg: #16305a;
+  --err: #ff7070;
+  --err-bg: #3b1620;
+  --warn: #f0b14a;
+  --warn-bg: #3a2a10;
+  --head-bg: #e6edf7;
+  --head-fg: #081322;
+}
+}
+
+html[data-theme="shadcn"], html[data-theme="shadcn"][data-mode="light"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 8px;
+  --shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --bw: 1px;
+  --head-font: var(--font-sans);
+  --bg: #fafafa;
+  --paper: #ffffff;
+  --ink: #09090b;
+  --ink-2: #71717a;
+  --ink-3: #a1a1aa;
+  --line: #e4e4e7;
+  --line-2: #f0f0f2;
+  --fill: #f4f4f5;
+  --accent: #2563eb;
+  --accent-bg: #eff6ff;
+  --ok: #16a34a;
+  --ok-bg: #f0fdf4;
+  --err: #dc2626;
+  --err-bg: #fef2f2;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --head-bg: #18181b;
+  --head-fg: #fafafa;
+}
+html[data-theme="shadcn"][data-mode="dark"] {
+  --bg: #09090b;
+  --paper: #121215;
+  --ink: #fafafa;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+  --line: #27272a;
+  --line-2: #1c1c1f;
+  --fill: #18181b;
+  --accent: #60a5fa;
+  --accent-bg: #172554;
+  --ok: #4ade80;
+  --ok-bg: #052e16;
+  --err: #f87171;
+  --err-bg: #450a0a;
+  --warn: #fbbf24;
+  --warn-bg: #451a03;
+  --head-bg: #fafafa;
+  --head-fg: #18181b;
+}
+@media (prefers-color-scheme: dark) {
+html[data-theme="shadcn"][data-mode="auto"] {
+  --bg: #09090b;
+  --paper: #121215;
+  --ink: #fafafa;
+  --ink-2: #a1a1aa;
+  --ink-3: #71717a;
+  --line: #27272a;
+  --line-2: #1c1c1f;
+  --fill: #18181b;
+  --accent: #60a5fa;
+  --accent-bg: #172554;
+  --ok: #4ade80;
+  --ok-bg: #052e16;
+  --err: #f87171;
+  --err-bg: #450a0a;
+  --warn: #fbbf24;
+  --warn-bg: #451a03;
+  --head-bg: #fafafa;
+  --head-fg: #18181b;
+}
+}
+
+html[lang="ja"][data-theme][data-mode] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+html[lang="ja"][data-theme="3b1b"][data-mode] {
+  --v-title-font: "CMU Serif", "Latin Modern Roman", "Iowan Old Style", "Palatino", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", "Songti SC", serif;
+}
+
+/* Answer me with HTML base — uses theme variables only, never hard-coded colors (theme tokens: themes/index.js). Exception: the var() fallbacks of diagrams (flow / sequence) equal the blueprint light tokens, guarded by a test. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre, kbd { font-family: var(--font-mono); }
+
+/* ── Toolbar ─────────────────────────────── */
+.am-toolbar {
+  position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px;
+}
+.am-btn {
+  font: 12px/1 var(--font-sans); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 10px; cursor: pointer;
+}
+.am-btn:hover { border-color: var(--ink-3); }
+.am-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Header ───────────────────────────────── */
+.am-head { margin: 0 0 20px; padding-right: 260px; }
+.am-head h1 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; }
+.am-sub { margin: 4px 0 0; color: var(--ink-2); }
+.am-head-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.am-head-meta b { font-family: var(--font-mono); font-weight: 400; color: var(--ink-3); margin-right: 6px; }
+.am-intro { margin-top: 12px; max-width: 80ch; }
+
+/* ── sheet template ────────────────────────── */
+.am-sheet { max-width: 1680px; margin: 0 auto; padding: 32px 28px 40px; }
+.am-frame { position: relative; }
+.am-grid {
+  display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 20px; align-items: start;
+}
+.am-ruler { display: none; }
+html[data-theme="blueprint"] .am-frame { border: 1px solid var(--line); padding: 30px; }
+html[data-theme="blueprint"] .am-frame::before {
+  content: ""; position: absolute; inset: 18px; border: 1px solid var(--line); pointer-events: none;
+}
+html[data-theme="blueprint"] .am-ruler {
+  display: flex; position: absolute; font: 10px/1 var(--font-mono); color: var(--ink-3);
+}
+.am-ruler span { flex: 1; display: flex; align-items: center; justify-content: center; }
+.am-ruler--top, .am-ruler--bottom { left: 18px; right: 18px; height: 18px; }
+.am-ruler--top { top: 0; }
+.am-ruler--bottom { bottom: 0; }
+.am-ruler--left, .am-ruler--right { top: 18px; bottom: 18px; width: 18px; flex-direction: column; }
+.am-ruler--left { left: 0; }
+.am-ruler--right { right: 0; }
+.am-ruler--top span + span, .am-ruler--bottom span + span { border-left: 1px solid var(--line); }
+.am-ruler--left span + span, .am-ruler--right span + span { border-top: 1px solid var(--line); }
+
+/* ── Panels ───────────────────────────────── */
+.am-panel {
+  background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); min-width: 0; overflow: hidden;
+}
+.am-panel-head {
+  display: flex; align-items: stretch; gap: 0; border-bottom: var(--bw) solid var(--line); min-height: 34px;
+}
+.am-panel-id {
+  display: flex; align-items: center; justify-content: center; min-width: 34px; padding: 0 8px;
+  background: var(--head-bg); color: var(--head-fg); font-weight: 600; font-size: 14px;
+}
+html[data-theme="shadcn"] .am-panel-id { border-radius: 6px; min-width: 24px; height: 24px; margin: 9px 0 9px 14px; font-size: 12px; }
+html[data-theme="shadcn"] .am-panel-head { border-bottom-width: 1px; }
+.am-panel-head h2 { margin: 0; padding: 7px 12px; font-size: 15px; font-weight: 600; flex: 1; display: flex; align-items: center; }
+.am-panel-meta { align-self: center; padding: 0 12px; font: 11px/1.3 var(--font-mono); color: var(--ink-2); text-align: right; }
+.am-panel-body { padding: 14px 16px 16px; }
+.am-panel-body > * + * { margin-top: 12px; }
+
+/* ── Markdown body ───────────────────────── */
+.am-md > :first-child { margin-top: 0; }
+.am-md > :last-child { margin-bottom: 0; }
+.am-md p { margin: 0 0 8px; }
+.am-md ul, .am-md ol { margin: 0 0 8px; padding-left: 20px; }
+.am-md li + li { margin-top: 3px; }
+.am-md h3, .am-md h4 { margin: 14px 0 6px; font-size: 13px; }
+.am-md a { color: var(--accent); }
+.am-md blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid var(--line-2); color: var(--ink-2); }
+.am-md :not(pre) > code { font-size: 0.9em; background: var(--fill); padding: 1px 5px; border-radius: 4px; }
+.am-md hr { border: 0; border-top: 1px solid var(--line-2); margin: 12px 0; }
+.am-md table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.am-md th {
+  text-align: left; font: 11px/1.3 var(--font-mono); color: var(--ink-2); font-weight: 400;
+  padding: 6px 10px; border-bottom: 1px solid var(--line-2);
+}
+/* th { text-align: left } outranks the align attribute from Markdown alignment, so restore right and center columns explicitly. */
+.am-md th[align="right"] { text-align: right; }
+.am-md th[align="center"] { text-align: center; }
+.am-md td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.am-md tbody tr:nth-child(even) td { background: var(--fill); }
+.am-table-wrap { overflow-x: auto; }
+.am-code {
+  margin: 0; padding: 12px 14px; background: var(--fill); border: 1px solid var(--line-2);
+  border-radius: var(--radius); overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+}
+
+/* ── Status badges ok / no / warn ──────────────── */
+.am-status { white-space: nowrap; font-weight: 500; }
+.am-status--ok { color: var(--ok); }
+.am-status--no { color: var(--err); }
+.am-status--warn { color: var(--warn); }
+.am-status-icon { display: inline-block; width: 1.1em; font-weight: 700; }
+
+/* ── callout ─────────────────────────────── */
+.am-callout {
+  border: 1px solid var(--line-2); border-left: 3px solid var(--accent); background: var(--accent-bg);
+  padding: 10px 14px; border-radius: var(--radius);
+}
+.am-callout--ok { border-left-color: var(--ok); background: var(--ok-bg); }
+.am-callout--warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.am-callout--err { border-left-color: var(--err); background: var(--err-bg); }
+.am-callout-title { font-weight: 600; margin-bottom: 4px; }
+
+/* ── kv title block ─────────────────────────── */
+.am-kv {
+  display: grid; grid-template-columns: repeat(var(--kv-cols, 2), minmax(0, 1fr)); margin: 0;
+  border-top: var(--bw) solid var(--line); border-left: var(--bw) solid var(--line);
+}
+.am-kv-cell { border-right: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); padding: 6px 10px 8px; min-width: 0; }
+.am-kv-cell--wide { grid-column: 1 / -1; }
+.am-kv dt { font: 11px/1.4 var(--font-mono); color: var(--ink-2); }
+.am-kv dd { margin: 2px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.am-kv-cell--wide dd { font-size: 17px; font-weight: 600; }
+html[data-theme="shadcn"] .am-kv { border-color: var(--line); border-radius: var(--radius); overflow: hidden; }
+
+/* ── timeline ────────────────────────────── */
+.am-timeline { list-style: none; margin: 0; padding: 0; }
+.am-timeline--h { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); padding-top: 4px; }
+.am-timeline--h li { position: relative; text-align: center; padding: 0 6px; }
+.am-timeline--h li::before {
+  content: ""; position: absolute; top: 31px; left: 0; right: 0; border-top: var(--bw) solid var(--line);
+}
+.am-timeline--h li:first-child::before { left: 50%; }
+.am-timeline--h li:last-child::before { right: 50%; }
+.am-tl-when { display: block; font-size: 15px; font-weight: 500; height: 24px; }
+.am-tl-dot {
+  position: relative; display: block; width: 11px; height: 11px; margin: 2px auto 8px;
+  border: var(--bw) solid var(--line); border-radius: 50%; background: var(--paper);
+}
+.am-tl-item--hi .am-tl-dot { background: var(--accent); border-color: var(--accent); }
+.am-tl-title { display: block; font-size: 12.5px; font-weight: 500; }
+.am-tl-text { display: block; font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.am-timeline--v li { position: relative; padding: 0 0 14px 22px; }
+.am-timeline--v li::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: -6px; border-left: var(--bw) solid var(--line-2); }
+.am-timeline--v li:last-child::before { display: none; }
+.am-timeline--v .am-tl-dot { position: absolute; left: 0; top: 4px; margin: 0; }
+.am-timeline--v .am-tl-when { display: inline; height: auto; font: 12px var(--font-mono); color: var(--ink-2); margin-right: 8px; }
+.am-timeline--v .am-tl-title { display: inline; font-size: 14px; }
+.am-timeline--v .am-tl-text { margin-top: 2px; }
+
+/* ── annot sentence notes ──────────────────────── */
+.am-annot + .am-annot { border-top: 1px solid var(--line-2); padding-top: 12px; }
+.am-annot-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.am-annot-meta { font: 11px var(--font-mono); font-weight: 400; color: var(--ink-2); }
+.am-annot-scroll { overflow-x: auto; }
+.am-annot-line {
+  position: relative; display: inline-block; white-space: pre; font: 14px/1.6 var(--font-mono);
+  padding-bottom: calc(var(--rows, 0) * 17px + 14px);
+}
+.am-annot-line--wrap { display: block; white-space: normal; padding-bottom: 10px; }
+.am-annot-line--wrap .am-seg { white-space: nowrap; }
+.am-seg { position: relative; }
+.am-seg::after {
+  content: ""; position: absolute; left: 1px; right: 1px; top: calc(100% + 1px); height: 5px;
+  border: 1px solid var(--accent); border-top: 0;
+}
+.am-seg-n {
+  position: absolute; left: 0; top: calc(100% + 8px + var(--row, 0) * 17px);
+  font: 11px/16px var(--font-sans); color: var(--accent); white-space: nowrap;
+}
+.am-seg--err { color: var(--err); }
+.am-seg--err::after { border-color: var(--err); }
+.am-seg--err .am-seg-n { color: var(--err); }
+.am-annot-caption { font-size: 12px; color: var(--ink-2); }
+
+/* ── limits bars ───────────────────────── */
+.am-lim + .am-lim { margin-top: 14px; }
+.am-lim-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }
+.am-lim-val { font: 12px var(--font-mono); color: var(--accent); white-space: nowrap; }
+.am-lim-track { position: relative; height: 12px; border: 1px solid var(--line-2); background: var(--fill); border-radius: calc(var(--radius) / 2); }
+.am-lim-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent-bg); border-right: 1px solid var(--accent); }
+.am-lim-mark { position: absolute; top: -4px; bottom: -4px; border-left: 2px solid var(--accent); }
+.am-lim.is-over .am-lim-fill { background: var(--err-bg); border-right-color: var(--err); }
+.am-lim.is-over .am-lim-val { color: var(--err); }
+.am-lim-ticks { position: relative; height: 16px; font: 10px/16px var(--font-mono); color: var(--ink-3); }
+.am-lim-ticks span { position: absolute; transform: translateX(-50%); }
+.am-lim-ticks span:first-child { transform: none; }
+.am-lim-note { font-size: 11px; color: var(--ink-2); margin-left: 6px; }
+
+/* ── tree ─────────────────────────── */
+.am-tree { font-size: 13px; }
+.am-tree-root { display: flex; justify-content: center; position: relative; padding-bottom: 18px; }
+.am-tree-root::after { content: ""; position: absolute; bottom: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }
+.am-tree-root--solo { padding-bottom: 12px; }
+.am-tree-root--solo::after { display: none; }
+.am-tree-box {
+  border: var(--bw) solid var(--line); background: var(--paper); padding: 6px 14px; text-align: center;
+  border-radius: var(--radius); font-weight: 600;
+}
+.am-tree-box small { display: block; font-weight: 400; color: var(--ink-2); font-size: 12px; }
+.am-tree-box--root { background: var(--accent-bg); font-size: 15px; padding: 8px 28px; }
+.am-tree-cols { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); }
+.am-tree-col { position: relative; padding: 18px 8px 0; min-width: 0; }
+.am-tree-col::before { content: ""; position: absolute; top: 0; left: 0; right: 0; border-top: var(--bw) solid var(--line); }
+.am-tree-col:first-child::before { left: 50%; }
+.am-tree-col:last-child::before { right: 50%; }
+.am-tree-col::after { content: ""; position: absolute; top: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }
+.am-tree-list, .am-tree-list ul { list-style: none; margin: 0; padding: 0; }
+.am-tree-col > .am-tree-list { margin: 8px 0 0 14px; }
+.am-tree-list ul { margin-left: 16px; }
+.am-tree-list li { position: relative; padding: 3px 0 3px 18px; }
+.am-tree-list li::before { content: ""; position: absolute; left: 0; top: 0.95em; width: 12px; border-top: 1px solid var(--ink-3); }
+.am-tree-list li::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid var(--ink-3); }
+.am-tree-list li:last-child::after { bottom: auto; height: 0.95em; }
+.am-tree-tag { font: 11px var(--font-mono); color: var(--ink-3); margin-right: 4px; }
+.am-tree code { font: 12px var(--font-mono); }
+.am-tree-sub { display: block; font-size: 11.5px; color: var(--ink-2); }
+.am-tree-hi > .am-tree-label { color: var(--accent); font-weight: 600; }
+
+/* ── Diagrams (flow / sequence) ───────────────── */
+.am-diagram { margin: 0; overflow-x: auto; text-align: center; }
+/* Embedded previews can lose html[data-theme]; the fallbacks keep diagrams readable, and defined theme variables still win. */
+.am-diagram svg { max-width: 100%; height: auto; font-family: var(--font-sans, sans-serif); }
+.am-diagram text { fill: var(--ink, #16181d); font-size: 13px; }
+.am-node-shape { fill: var(--paper, #ffffff); stroke: var(--line, #1d2026); stroke-width: var(--bw, 1.5px); }
+.am-node--hi .am-node-shape { fill: var(--accent-bg, #e4ecf8); stroke: var(--accent, #1d5fbf); }
+.am-node--hi text { fill: var(--accent, #1d5fbf); font-weight: 600; }
+.am-edge { fill: none; stroke: var(--ink-2, #4b5260); stroke-width: 1.3; }
+.am-edge--dashed { stroke-dasharray: 5 4; }
+.am-arrow { fill: var(--ink-2, #4b5260); }
+.am-edge-label rect { fill: var(--paper, #ffffff); }
+.am-diagram .am-edge-label text { fill: var(--accent, #1d5fbf); font-size: 11.5px; }
+.am-cluster { fill: var(--fill, #f3f5f8); stroke: var(--line-2, #d6dae1); stroke-width: 1; stroke-dasharray: 4 3; }
+.am-diagram .am-cluster-label { fill: var(--ink-2, #4b5260); font: 11px var(--font-mono, monospace); }
+.am-lifeline { stroke: var(--ink-3, #8b929e); stroke-width: 1; stroke-dasharray: 4 4; }
+.am-actor { fill: var(--paper, #ffffff); stroke: var(--line, #1d2026); stroke-width: var(--bw, 1.5px); }
+.am-note { fill: var(--warn-bg, #fdf3e2); stroke: var(--warn, #a8620a); stroke-width: 1; }
+.am-diagram .am-step { fill: var(--ink-3, #8b929e); font: 10px var(--font-mono, monospace); }
+
+/* ── doc template ────────────────────────── */
+.am-doc { max-width: 1120px; margin: 0 auto; padding: 40px 28px 64px; }
+.am-doc-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+.am-doc-layout--notoc { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.am-toc { position: sticky; top: 24px; font-size: 13px; }
+.am-toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 4px 0 4px 10px; border-left: 2px solid var(--line-2); }
+.am-toc a:hover { color: var(--ink); border-left-color: var(--accent); }
+.am-doc-body > .am-panel + .am-panel { margin-top: 20px; }
+
+/* ── Responsive and print ─────────────────────────── */
+@media (max-width: 1100px) {
+  .am-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .am-grid > .am-panel { grid-column: auto !important; }
+  .am-grid > .am-panel.am-span-wide { grid-column: 1 / -1 !important; }
+}
+@media (max-width: 760px) {
+  .am-sheet, .am-doc { padding: 56px 12px 24px; }
+  .am-head { padding-right: 0; }
+  .am-grid { grid-template-columns: minmax(0, 1fr); }
+  .am-grid > .am-panel.am-span-wide { grid-column: auto !important; }
+  html[data-theme="blueprint"] .am-frame { padding: 0; border: 0; }
+  html[data-theme="blueprint"] .am-frame::before, html[data-theme="blueprint"] .am-ruler { display: none; }
+  .am-doc-layout { grid-template-columns: minmax(0, 1fr); }
+  .am-toc { position: static; }
+  .am-timeline--h { grid-template-columns: minmax(0, 1fr); }
+  .am-tree-cols { grid-template-columns: minmax(0, 1fr); }
+  /* Tables and diagrams keep their size: the wrapper scrolls horizontally when they overflow. */
+  .am-md th, .am-md td { min-width: 6em; }
+  .am-diagram svg { max-width: none; }
+}
+.am-colophon { text-align: center; padding: 0 0 28px; font: 11px var(--font-mono); color: var(--ink-3); }
+
+@media print {
+  .am-toolbar { display: none; }
+  body { background: var(--paper); }
+  .am-panel { break-inside: avoid; box-shadow: none; }
+}
+.am-panel--bare { border: 0; background: transparent; box-shadow: none; }
+.am-panel--bare > .am-panel-body { padding: 0; }
+.am-panel--bare .am-kv { background: var(--paper); }
+
+</style>
+</head>
+<body>
+<div class="am-toolbar">
+<button class="am-btn" type="button" data-am="theme" data-labels="{&quot;blueprint&quot;:&quot;主题：图纸&quot;,&quot;shadcn&quot;:&quot;主题：卡片&quot;}">主题：图纸</button>
+<button class="am-btn" type="button" data-am="mode" data-labels="{&quot;auto&quot;:&quot;明暗：跟随系统&quot;,&quot;light&quot;:&quot;明暗：亮&quot;,&quot;dark&quot;:&quot;明暗：暗&quot;}">明暗：跟随系统</button>
+<button class="am-btn" type="button" data-am="copy" data-done="已复制 ✓">复制源稿</button>
+</div>
+<main class="am-doc">
+<header class="am-head"><h1>pi-jev-router 有限动态升级实施计划</h1><p class="am-sub">默认保留 fixed；adaptive 有限升级、有界历史与本机真实 LLM 验收已完成。</p><div class="am-head-meta"><span><b>source</b>计划 001 · 基线 bb854b2 · 已核对 pi 1.2.0</span></div><div class="am-intro am-md"><div class="am-md"><p>本计划补全原方向审查，作为 M1/M2 实现与验收规格。后续 P1 的分类账和 fixed Codemode 支持修订见 <a href="./002-p1-accounting-fixed-codemode.md">计划 002</a>，10 项真实复测已通过。第一版保留默认固定路由，增加显式启用的有限动态升级。短续接、分类失败和取消不会使已选强模型降级。升级后锁定规划阶段，避免重复执行首次写入交接。</p>
+</div></div></header>
+<div class="am-doc-layout">
+<nav class="am-toc" aria-label="目录"><a href="#panel-A">A · 交付目标与范围</a><a href="#panel-B">B · 当前实现与验证环境</a><a href="#panel-C">C · 配置与分类输入契约</a><a href="#panel-D">D · 分支状态、迁移与写入证据</a><a href="#panel-E">E · 路由状态机与处理顺序</a><a href="#panel-F">F · 实施步骤与回归清单</a><a href="#panel-G">G · 完成标准、停止条件与维护</a><a href="#panel-H">H · 后续实验与参考资料</a></nav><div class="am-doc-body">
+<section class="am-panel" id="panel-A">
+<header class="am-panel-head"><span class="am-panel-id">A</span><h2>交付目标与范围</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>状态与执行约定</h3>
+<ul>
+<li>编号：001。沿用已有文件名，避免原 Markdown 与 HTML 链接失效。</li>
+<li>状态：M1/M2、离线测试、真实 SessionManager 及本机 pi 1.2.0 在线 agent loop 验收已完成；未发布。真实调用、记账限制和证据见 <a href="./validation.md">validation.md</a>。</li>
+<li>优先级：P1。类别：direction、correctness、tests、docs。</li>
+<li>工作量：L，拆为七个可验证步骤。风险：中。</li>
+<li>完善日期：2026-10-16。规划基线：<code>bb854b2e8f91b70dfc95a0a679966d37dd3348fa</code>。</li>
+<li>核对环境：Node.js <code>v24.15.0</code>，本机 pi <code>1.2.0</code>。</li>
+<li>依赖：现有配置解析、虚拟模型接口、<code>node:test</code>；无需新运行时依赖。</li>
+<li>2026-10-16 已按七步实现并更新 <code>plans/README.md</code>。原规格继续作为验收依据；下文基线记录不代表当前实现。</li>
+</ul>
+<p>执行者先完整阅读本文，再执行漂移检查与基线测试。每步通过指定验证后进入下一步。不要自动 commit、push、发布或改写用户现有配置。</p>
+<h3>不可变约束</h3>
+<ol>
+<li>默认策略为 fixed。保持基线选模和一次交接规则；2026-10-16 用户追加授权的 P1 将首次写入证据扩展为包含成功的 nested edit/write，见计划 002。</li>
+<li>adaptive 与历史外发分别启用。动态路由不自动扩大分类输入。</li>
+<li>物理模型仍共用 provider，沿用 complex、standard、implementation、direct 槽位。</li>
+<li>不通过名称、价格或 contextWindow 推断模型能力；槽位由用户配置。</li>
+<li>保留配置文件优先级、未知键告警、thinking level 优先级和 limits 同步。</li>
+<li>状态只交给 pi 的分支状态机制保存。不用全局变量保存会话阶段。</li>
+<li>首次写入、工具成功、测试失败和模型自述都不是质量评价。</li>
+</ol>
+<h3>两项交付</h3>
+<p><strong>M1，步骤 1–5：有限升级。</strong> 新用户边界重新判断；有复杂结果时升级至 complex。简单结果、输入不足或分类错误保持已有模型。保留初始规划的一次写入交接；动态升级后的阶段禁止自动交接。包含取消、重试、旧状态迁移、嵌套写入与决策记录。</p>
+<p><strong>M2，步骤 6–7：可选背景与宿主验证。</strong> 增加默认关闭的有界最近对话输入，完成真实 SessionManager 持久化与投影测试，编写宿主验收记录。自动评分、自动降级不属于 M2。</p>
+<h3>允许修改的文件</h3>
+<ul>
+<li><code>extensions/jev-router.ts</code>：配置、分类适配、状态归一化、决策辅助函数、注册入口。</li>
+<li><code>test/route.test.ts</code>：扩展现有 stub，增加固定策略和有限升级回归。</li>
+<li><code>test/config.test.ts</code>：新增字段、合并、默认值和非法值验证。</li>
+<li><code>test/host-session.test.ts</code>：新增；使用真实 pi SessionManager 验证分支与投影。</li>
+<li><code>jev-router.example.json</code>：继续完整列出所有默认值。</li>
+<li><code>README.md</code>：中英文行为、隐私、配置、支持范围与验证说明。</li>
+<li><code>plans/README.md</code>、本计划及对应 HTML：进度、证据和规格修订。</li>
+<li><code>plans/validation.md</code>：新增；记录宿主版本、验证结果和未执行项。</li>
+<li>2026-10-16 用户追加在线调用授权：<code>scripts/live-agent-smoke.ts</code> 和 <code>plans/live-smoke-results.json</code>，用于显式启用的真实调用及脱敏证据，不进入默认离线测试。</li>
+</ul>
+<p>源码保持单文件结构。可提取同文件内部函数，不拆出新架构，不为测试导出生产内部状态。</p>
+<p>M1/M2 原范围外：package.json、依赖与锁文件、RELEASING.md、LICENSE、用户配置、pi 宿主源码、凭据、跨 provider 槽位、自定义路由 DSL、新命令和 UI。后续 P1 仅追加 /jev-usage 命令与独立会话分类账；其他边界不变。仓库没有 typecheck/lint scripts；不要借本任务安装工具链。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-B">
+<header class="am-panel-head"><span class="am-panel-id">B</span><h2>当前实现与验证环境</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>当前行为与代码锚点</h3>
+<p><code>extensions/jev-router.ts</code> 是唯一扩展实现。第 118 行附近的 RouterState 仅保存 phase/model。第 287 行附近的 editedThisTurn 只识别最后一条 user 消息之后、外层工具名为 edit/write 的成功结果。</p>
+<p>第 366 行附近的路由摘录：</p>
+</div>
+<pre class="am-code"><code data-lang="ts">if (request.reason === &quot;direct&quot;) return route(direct);
+const state = request.state;
+if (!state) {
+  const model = await choosePlanningModel();
+  return route(model, { phase: &quot;planning&quot;, model });
+}
+if (implementation &amp;&amp; state.phase === &quot;planning&quot; &amp;&amp; editedThisTurn(request.messages))
+  return route(implementation, { phase: &quot;implementation&quot;, model: implementation });
+return pickState(state.model);</code></pre>
+<div class="am-md"><p>choosePlanningModel 在第 379 行附近优先复用 previous 中的规划模型。有状态时不重新分类。第 397 行附近截断最后一条 user 文本，第 429 行附近比较 <code>p(complex) &gt;= threshold</code>，没有 confidence 门槛。</p>
+<p>沿用 TypeScript、ESM、tab 缩进、双引号和现有错误前缀。配置范例是 mergeConfig 与 <code>test/config.test.ts</code>；测试使用 node:test、node:assert/strict，隔离临时目录并恢复环境。</p>
+<p><code>test/route.test.ts</code> 通过 stub 注册公开虚拟模型并调用 definition.route。扩充此入口，不测试复制的内部实现。现有示例配置测试必须继续成立：</p>
+</div>
+<pre class="am-code"><code data-lang="ts">assert.deepEqual(JSON.parse(readFileSync(path, &quot;utf-8&quot;)), DEFAULT_CONFIG);</code></pre>
+<div class="am-md"><p>新增默认字段时必须同步示例 JSON。未发现额外项目 AGENTS、CONTEXT、ADR、设计规格或 CI 文件。</p>
+<h3>已验证与未验证</h3>
+<p>规划时基线 <code>npm test</code> 输出为 25 tests、25 pass、0 fail。离线 stub 验证了 fixed 的 Astra → Luna → Luna，分类调用一次；嵌套 write 被忽略；分类 error/aborted 在现有初始化路径回退 standard。</p>
+<p>以上是规划基线。实施后配置与 route 共 149 项通过；配置真实宿主运行完整套件为 153 项通过，零 skip。经用户授权，codex-sub2api 的 sol/luna 与真实 Jev 完成 core/cancel/retry 共 8 项在线检查，core 最终 exit 0。尚未做准确率或缓存/成本收益对照。详细命令和限制见 <a href="./validation.md">validation.md</a>。</p>
+<h3>pi 1.2.0 契约</h3>
+<p>已核对虚拟模型文档、模型文档及相关类型和实现：</p>
+<ul>
+<li>reason=user 包括 prompt、steering、follow-up；continuation 也可能由扩展消息触发。</li>
+<li>previous 是最近成功响应；failed 是 retry 对应的失败物理模型和 assistant 消息。</li>
+<li>新 state 在发送主模型请求前保存，主模型失败不撤回。原 state 引用或 undefined 表示保持。</li>
+<li>state 沿 session tree 继承并跨 compaction 保存；direct 没有 state。</li>
+<li><code>ctx.sessionManager.getBranch()</code> 返回当前分支的持久 entry ID；getLeafId 返回当前叶节点。</li>
+<li>buildSessionProjection 返回 sourceEntry 与应用 context edits 后的 messages。已删除正文不在投影中。</li>
+<li>request.messages 可将摘要、custom message、bashExecution 转为 user role。按 role 过滤不能保证只取用户输入。</li>
+<li>工具结果的 nestedCalls.calls 含 name、id、status；status 为 ok/error/unfinished。</li>
+<li>complete=false 可能表示参数省略、调用截断或未完成，不代表已记录的 ok 无效。</li>
+<li>嵌套执行事件带 parentToolCallId；本实现消费持久结果，不新增事件缓存。</li>
+<li>classify 通常以 stopReason=error/aborted 报失败而非 reject；仍需防御第三方抛异常。</li>
+<li>分类接口支持一次调用包含多个独立 questions，无需改为直接 HTTP 请求。</li>
+</ul>
+<h3>漂移检查与命令</h3>
+<p>在仓库根目录执行：</p>
+</div>
+<pre class="am-code"><code data-lang="sh">git status --short
+git diff --stat bb854b2e8f91b70dfc95a0a679966d37dd3348fa..HEAD -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+git diff -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+git diff --cached -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+node --version
+npm test</code></pre>
+<div class="am-md"><p>规划时只有 plans/ 未跟踪。若源码或宿主关键接口漂移，先对照本节摘录，不覆盖归属未确认的改动。文档进度变化无需阻塞实现。</p>
+<p>验证入口：</p>
+<ul>
+<li><code>npm test -- test/config.test.ts</code>：配置测试通过。</li>
+<li><code>npm test -- test/route.test.ts</code>：公开 route 行为测试通过。</li>
+<li><code>npm test</code>：完整离线套件通过；宿主专项默认可 skip，但须单独报告。</li>
+<li><code>git diff --check</code>：无空白错误。</li>
+<li><code>git diff --name-only</code> 与 <code>git status --short</code>：相对开始快照没有范围外改动，包含未跟踪文件。</li>
+</ul>
+<p>npm 命令沿用现有 <code>test: node --test</code>，无需安装依赖。当前 Node 支持直接运行类型可擦除的 TS。目标环境若不支持，使用受支持的开发 Node 版本；不在本任务调整 engines 或添加转译器。不要声称跑过不存在的 lint/typecheck。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-C">
+<header class="am-panel-head"><span class="am-panel-id">C</span><h2>配置与分类输入契约</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>配置默认字段</h3>
+<p>保留现有字段和值，增加：</p>
+</div>
+<pre class="am-code"><code data-lang="json">{
+  &quot;strategy&quot;: &quot;fixed&quot;,
+  &quot;adaptive&quot;: {
+    &quot;handoffTools&quot;: [&quot;edit&quot;, &quot;write&quot;],
+    &quot;decisionTimeoutMs&quot;: 3000,
+    &quot;contextMode&quot;: &quot;last-user-only&quot;,
+    &quot;historyMaxTurns&quot;: 4,
+    &quot;historyCharLimit&quot;: 8000
+  }
+}</code></pre>
+<div class="am-md"><p>这里只展示新增字段。示例 JSON 必须保留完整配置。这些数值是初始工程预算，不是实测最优值。</p>
+<ul>
+<li>strategy 仅接受 fixed/adaptive，省略时继承；null、false、非法字符串均报带路径的错误。</li>
+<li>adaptive 省略时继承；显式值必须为普通对象，拒绝 null、数组和其他类型。</li>
+<li>handoffTools 为去重后的非空字符串数组；允许空数组禁用初始交接。数组按文件整项覆盖。</li>
+<li>拒绝将 bash 或 codemode 加入 handoffTools。自定义工具由操作者确认其成功确实代表写入。</li>
+<li>decisionTimeoutMs 为 1–60000 整数；historyMaxTurns 为 1–8 整数；historyCharLimit 为 1–32000 整数。</li>
+<li>contextMode 仅接受 last-user-only/recent-conversation。新字段显式 null 不表示默认值。</li>
+<li>personal → project 按字段合并；显式配置文件仍独占。不修改 DEFAULT_CONFIG 或前层对象。</li>
+<li>未知嵌套键仍告警并忽略。fixed 不消费 adaptive 字段，但解析仍验证它们。</li>
+</ul>
+<p>实施顺序为 M1 的 strategy、handoffTools、decisionTimeoutMs，再实现 M2 的三个历史字段。当前均已生效，示例完整列出默认值。</p>
+<h3>分类结果与选模分开</h3>
+<p>新增内部 classifyComplexity，返回具名结果，不把所有失败折成 standard 模型 ID：</p>
+</div>
+<pre class="am-code"><code data-lang="ts">type ComplexityResult =
+  | { kind: &quot;classified&quot;; probability: number; durationMs: number }
+  | { kind: &quot;unavailable&quot;; reason: string; durationMs: number }
+  | { kind: &quot;cancelled&quot;; durationMs: number };</code></pre>
+<div class="am-md"><p>unavailable.reason 实现为字符串字面量联合：disabled、missing-classifier、timeout、error、invalid-answer、missing-input。不把供应商原始错误正文写入持久状态或决策日志。</p>
+<p>adaptive 仅接受 stopReason=stop、type=choice 且 complex 概率存在、有限、位于 [0,1]。缺失、NaN、Infinity、越界均为 invalid-answer。只使用 complex 概率，不另设 confidence 门槛，也不自行重归一化。</p>
+<p>继续采用 <code>p(complex) &gt;= threshold</code>，测试等于阈值及两侧。confidence 表示分布集中程度，不是独立正确率保证。不照搬 HiRoute 的 simple&gt;=0.8。</p>
+<p>fixed 保留原分类输出行为。若共用适配函数，先通过表征测试证明缺失概率、异常和 previous 处理未变。</p>
+<h3>取消与超时</h3>
+<ul>
+<li>调用前及返回后检查 caller signal，并向分类器传递 signal。</li>
+<li>caller 取消，或服务返回非本地预算导致的 aborted：中止 route，不返回新 state，不请求主模型。</li>
+<li>本地 decisionTimeoutMs 耗尽而 caller 未取消：返回 unavailable/timeout。</li>
+<li>用独立 AbortController、有限计时器和 race 保证上限；清理监听与计时器，处理迟到 rejection。</li>
+<li>不能只发 abort 然后无限等待不响应取消的 provider。</li>
+<li>分类完成至主模型发送之间的取消由宿主控制；state 已保存时遵守“不撤回”契约。</li>
+<li>retry 不重新分类，不重复消耗失败请求的分类预算。</li>
+</ul>
+<h3>M1 默认输入</h3>
+<p>adaptive 从 buildSessionProjection().entries 找到当前分支最后一个 sourceEntry.type=message 且原始 message.role=user 的贡献，使用投影后纯 text。排除图片、thinking、toolCall。</p>
+<p>“原生 user”指宿主 user 消息，可能由 SDK/扩展生成，不能保证人类手输。排除 custom_message、compaction、branch_summary、bashExecution、system。上下文扩展改写 request 内容时，默认仍使用可追溯的投影文本，并在 README 说明。</p>
+<p>仅在 reason=user 且存在尚未判断的 entry ID 时分类。缺来源或正文为空时保持已有模型；首次无状态选 standard。不能改用转换后的最后一条 user 猜正文。</p>
+<p>adaptive 的默认请求形态为 <code>state: { current: &quot;截断后的文本&quot; }</code>；questions.complexity 仍是 choice，instructions 指向 state.current。fixed 保留原 state.prompt 形态。promptLimit 沿用 JS string.slice 的 UTF-16 code unit 上限。状态与日志仅记 ID、长度、截断标志，不保存 prompt。</p>
+<h3>M2 可选历史</h3>
+<p>contextMode=recent-conversation 时按原生 user entry 划分投影轮次，只加入当前轮之前最近的完整轮次。每轮仅含 user 与成功 assistant 的 text；成功指 stopReason 为 stop/toolUse。工具参数、结果、nestedCalls 参数、思考、图片、系统提示词和 error/aborted 响应均排除。</p>
+<ul>
+<li>当前输入单列，截至 promptLimit。</li>
+<li>历史从新到旧选择，最多 historyMaxTurns 轮，总文本长度不超过 historyCharLimit。</li>
+<li>超预算时删除最早完整轮次；最近一轮本身过大则历史为空，不跳过它拼接更早碎片。</li>
+<li>compaction 裁掉的轮次不从原始 session 补回。context_edit 删除/替换前的正文不能重新外发。</li>
+<li>historyPartial 在压缩、裁剪、上下文编辑/删除、含失败或取消响应、完整性未知时为 true；不能据此扣模型表现分。</li>
+<li>JSON 使用 current 字符串、recentTurns 数组和 historyPartial 布尔值。每个历史轮次为 <code>{ user: string, assistant: string[] }</code>，按时间排列；不发送本地 entry ID。instructions 明确引用 state.current 与 state.recentTurns。历史字符也按 UTF-16 code unit 计数；预算指正文总量，不含固定 instructions 和 JSON 结构开销。</li>
+<li>last-user-only 只构造当前文本，无历史字段。classifier=null 时不外发。</li>
+<li>不调用额外模型生成摘要。</li>
+</ul>
+<p>助手文本可能复述文件内容或密钥。投影、过滤和预算不保证绝对防泄漏；README 应明确允许外发的文本来源。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-D">
+<header class="am-panel-head"><span class="am-panel-id">D</span><h2>分支状态、迁移与写入证据</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>adaptive 状态格式</h3>
+<p>保留 phase/model 以兼容回到 fixed，新增版本字段。建议形态：</p>
+</div>
+<pre class="am-code"><code data-lang="ts">interface AdaptiveState {
+  schemaVersion: 1;
+  policyVersion: &quot;adaptive-v1&quot;;
+  strategy: &quot;adaptive&quot;;
+  provider: string;
+  phase: &quot;planning&quot; | &quot;implementation&quot;;
+  model: string;
+  slot: &quot;complex&quot; | &quot;standard&quot; | &quot;implementation&quot; | &quot;retained&quot;;
+  stageSeq: number;
+  stageStartEntryId: string | null;
+  handoff: &quot;first-write&quot; | &quot;locked&quot;;
+  lastEvaluatedUserEntryId: string | null;
+  configKey: string;
+}</code></pre>
+<div class="am-md"><p>stageSeq 从 1 起，物理模型、phase 或 configKey 改变时加一；同一次 route 最多加一。仅更新 user ID 或锁定 handoff 不开新阶段。legacy 迁移从 1 起。同 ID 不同槽位可改 phase/slot，但不算物理切换。不存 Model、Set、Date、Error、AbortSignal 或正文。</p>
+<p>configKey 是固定字段顺序的摘要字符串，覆盖 provider、models、threshold、promptLimit 和 adaptive 配置。不含凭据，无需加密；debug 和 virtual 展示字段不影响策略身份。</p>
+<p>stageStartEntryId 使用 route 前的叶节点 ID。它是分支锚点，不是 messages 下标或时间戳。必须确认锚点在当前分支，只消费其后的证据。</p>
+<h3>初始化、迁移、恢复</h3>
+<ul>
+<li>新会话初始化 planning、stageSeq=1。仅在 reason=user、原生 user ID 与锚点均可用、implementation 非 null 且白名单非空时 first-write，否则 locked。将当前 user ID 记为 lastEvaluatedUserEntryId；复用 previous 或分类不可用也视为已处理，无 ID 则为 null。</li>
+<li>初始分类不可用选 standard；caller 取消则不初始化。</li>
+<li>初始化可复用同 provider 的 previous complex/standard，不调用分类器。不能复用 implementation 跳过规划。</li>
+<li>legacy {phase,model} 迁移：保留可用模型与 phase，slot 按 phase 与配置匹配；仍不明确则 retained。</li>
+<li>迁移锚点设为当前 leaf，handoff=locked。新 user 可以升级；continuation/retry 不分类。</li>
+<li>adaptive → fixed：只消费 phase/model，恢复 fixed 规则；不自动恢复更早的便宜模型。</li>
+<li>configKey 变化：关闭旧交接资格，重建 locked 阶段并重设锚点。同 provider 且目录仍存在时保留模型，否则选 standard。保留已判断 user ID；只有不同的新 user ID 才进入重判，不追溯重评旧输入。旧 provider 下相同 ID 不是同一模型。</li>
+<li>状态模型从目录消失：选 standard、phase=planning、slot=standard，并写回修复后的 locked 状态与新锚点。standard 也缺失则沿用带配置路径的错误。</li>
+<li>未知 schemaVersion、非法 phase/model/计数器：明确报错并给恢复建议，不猜未来格式、不清空状态绕过。</li>
+<li>锚点不存在：不消费历史编辑，保持模型并锁定；后续新 user 仍可升级。</li>
+</ul>
+<p>归一化先在局部候选值中完成。分类取消时不返回候选迁移或重判状态。保持时返回原引用或 undefined；只有语义变化才返回新对象。</p>
+<h3>初始交接的证据</h3>
+<p>仅对初始 first-write 阶段生效：</p>
+<ol>
+<li>reason 必须为 continuation。新 user 优先重判，不能先消费旧写入。</li>
+<li>当前原生 user ID 必须等于该阶段最近已判断 user ID；写入在这个 user 与阶段锚点之后。</li>
+<li>外层 toolResult 的 toolName 在 handoffTools 且 isError=false，算写入证据。</li>
+<li>或 nestedCalls.calls 含白名单 name 且 status=ok。外层 Codemode 失败不抹去已成功的内部写入。</li>
+<li>error、unfinished、文字声称已写入、成功 bash/codemode 外壳都不算。</li>
+<li>complete=false 时已记录的 ok 仍可作正证据；没有记录不能推出没有写入。不扫描参数或正文猜行为。</li>
+<li>重复结果不会重复交接，因为首个交接已改变 phase/handoff。</li>
+</ol>
+<p>旧宿主缺 nestedCalls 时仅识别外层白名单。缺分支与投影能力时 adaptive 明确报不支持，fixed 仍可用。初始交接是保留的成本策略，不是已证明任务适合降级。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-E">
+<header class="am-panel-head"><span class="am-panel-id">E</span><h2>路由状态机与处理顺序</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>优先级</h3>
+<ol>
+<li>direct：沿用 direct → implementation → standard，无状态、不分类。</li>
+<li>fixed：进入原路由，不执行 adaptive 迁移和历史输入。</li>
+<li>adaptive：检查 signal、宿主能力，在内存校验和归一化状态。</li>
+<li>retry：执行失败恢复后结束，不分类、不交接。</li>
+<li>无初始化状态：进入规划；非 user 且无合规 previous 时选 standard，不从摘要猜任务。</li>
+<li>新 user：执行升级规则并记录判断过的 ID。</li>
+<li>continuation：仅允许初始 first-write 交接，其余保持。</li>
+</ol>
+<p>不能先清空 state 再调用旧 choosePlanningModel。</p>
+<h3>新 user 升级规则</h3>
+<ul>
+<li>同 entry ID 已判断：不分类、不改变阶段。不同 ID 即使文本相同仍是新请求。</li>
+<li>已在 complex 槽位：不分类，更新用户边界并关闭尚未使用的初始交接资格。</li>
+<li>其他槽位：绕过 previous 捷径，调用 classifyComplexity。</li>
+<li>有效 p&gt;=threshold：解析 complex 目标后进入 planning、handoff=locked 的新阶段。</li>
+<li>p&lt;threshold、缺输入、disabled、缺分类器、timeout、error、invalid-answer：保持模型，不切 standard 或 implementation。</li>
+<li>caller 取消或非预算 aborted：中止 route，不消费 user ID，不生成新阶段。</li>
+<li>正常结束的重判无论是否升级，都关闭旧 first-write，防止“继续”引发遗留降级。</li>
+<li>unavailable 也标记该 user 已尝试；同 ID 不重复，下个新 ID 可重试。</li>
+<li>complex 与当前物理模型相同：锁定 planning，不计物理切换。</li>
+<li>有效状态存在但 complex 目标缺失：保持模型并记录 target-missing；首次选择目标缺失仍报配置错误。</li>
+</ul>
+<p>因此“继续”“按第二方案做”即使分类简单，也不降低当前能力。last-user-only 仍可能漏掉隐含复杂需求；M2 改善背景，不保证消除误判。</p>
+<h3>retry</h3>
+<p>优先采用 failed 物理模型和 thinkingLevel。failed 必须属于当前 provider、仍在目录，且为配置槽位或有效状态模型；否则用有效状态模型，再回退 standard。</p>
+<ul>
+<li>failed 与 state 同模型：不增阶段、不重新分类。</li>
+<li>failed 不同但合规：写回 failed 模型并建立 locked 阶段，避免 continuation 跳回。</li>
+<li>failed 缺失：有状态就保持；无状态复用合规 previous，否则 standard，并建立 locked 状态。</li>
+<li>所有 retry 都关闭待执行的 first-write；相同模型可只改 handoff，不增 stageSeq。</li>
+<li>不按错误文本自动推断模型能力；限流、网络、context overflow 的换模恢复后置。</li>
+</ul>
+<p>普通路由保持虚拟级别 → 物理级别 → request.thinkingLevel 优先级。retry 有 failed.thinkingLevel 时采用它，否则沿用普通优先级。所有路径同步 limits。</p>
+<h3>轨迹与切换上界</h3>
+</div>
+<figure class="am-diagram am-flow"><svg viewBox="0 0 640 210" width="640" height="210" role="img" aria-label="流程图：初始规划、实现模型、锁定强规划" xmlns="http://www.w3.org/2000/svg"><defs><marker id="am1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="am-arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs><g></g><g><g data-step="0"><path class="am-edge" d="M94,59.7 L131.5,68.6 Q169,77.5 218.3,77.5 L267.5,77.5" marker-end="url(#am1-arrow)"/><g class="am-edge-label"><rect x="118" y="68.5" width="102" height="18" rx="3"/><text x="169" y="77.5" text-anchor="middle" dominant-baseline="central">初始阶段成功写入</text></g></g><g data-step="1"><path class="am-edge" d="M94,40.8 L131.5,31.9 Q169,23 238.3,23 Q307.5,23 379.6,23 Q451.8,23 492.1,31.6 L532.5,40.3" marker-end="url(#am1-arrow)"/><g class="am-edge-label"><rect x="250.8" y="14" width="113.5" height="18" rx="3"/><text x="307.5" y="23" text-anchor="middle" dominant-baseline="central">新用户要求复杂任务</text></g></g><g data-step="2"><path class="am-edge" d="M347.5,77.5 L399.6,77.5 Q451.8,77.5 492.1,68.9 L532.5,60.2" marker-end="url(#am1-arrow)"/><g class="am-edge-label"><rect x="395" y="68.5" width="113.5" height="18" rx="3"/><text x="451.8" y="77.5" text-anchor="middle" dominant-baseline="central">新用户要求复杂任务</text></g></g><g data-step="3"><path class="am-edge" d="M532.5,122.3 L532.5,122.3 Q532.5,122.3 555.8,113.5 Q579,104.8 602.3,96 Q625.5,87.3 625.5,87.3 Q625.5,87.3 602.3,96 Q579,104.8 579,104.8 L579,104.8" marker-end="url(#am1-arrow)"/><g class="am-edge-label"><rect x="533.8" y="95.8" width="90.5" height="18" rx="3"/><text x="579" y="104.8" text-anchor="middle" dominant-baseline="central">续接或简单请求</text></g></g><g data-step="4"><path class="am-edge" d="M267.5,149.5 L267.5,149.5 Q267.5,149.5 287.5,140.8 Q307.5,132 327.5,123.3 Q347.5,114.5 347.5,114.5 Q347.5,114.5 327.5,123.3 Q307.5,132 307.5,132 L307.5,132" marker-end="url(#am1-arrow)"/><g class="am-edge-label"><rect x="245" y="123" width="125" height="18" rx="3"/><text x="307.5" y="132" text-anchor="middle" dominant-baseline="central">简单结果或分类不可用</text></g></g></g><g><g class="am-node am-node--rect" data-key="初始规划" data-step="0"><rect class="am-node-shape" x="14" y="32.8" width="80" height="35" rx="3"/><text x="54" y="50.3" text-anchor="middle" dominant-baseline="central">初始规划</text></g><g class="am-node am-node--rect" data-key="实现模型" data-step="0"><rect class="am-node-shape" x="267.5" y="60" width="80" height="35" rx="3"/><text x="307.5" y="77.5" text-anchor="middle" dominant-baseline="central">实现模型</text></g><g class="am-node am-node--rect" data-key="锁定强规划" data-step="1"><rect class="am-node-shape" x="532.5" y="32.8" width="93" height="35" rx="3"/><text x="579" y="50.3" text-anchor="middle" dominant-baseline="central">锁定强规划</text></g></g></svg></figure>
+<div class="am-md"><p>固定配置、无模型消失和外部切模时，每条分支最多一次初始交接，再一次升级。升级先发生则取消交接。这个结构限制来回切换，第一版不增加驻留时间或切换预算。</p>
+<p>代价是升级后可能长期使用 complex。用户可开新会话或改回 fixed；本版不自动检测任务结束并降级。</p>
+<h3>最小决策记录</h3>
+<p>debug 时每个 route 输出结构化摘要：strategy、policyVersion、requestReason、stageSeq、from/to、decisionReason、classifierStatus、有效 probability、classifierDurationMs、switched。不输出正文、工具参数或原始服务错误。</p>
+<p>decisionReason 使用稳定枚举，例如 initial、previous-reused、initial-write、upgrade、keep-simple、keep-unavailable、already-evaluated、retry-sticky、state-recovered、target-missing、direct。默认 debug=false，不增加文件日志或遥测。</p>
+<p>有 usage 时记录数值 token/cost；未知价格记 unknown，目录零报价不能解释为免费。本机 pi 1.2.0 实测扩展直接 classify 的 usage 未计入 /session；P1 已用公开 appendEntry 持久化独立分类账并提供 /jev-usage 查询。压缩 usage 正常计入。升级宿主后重新核对，不能套用 Codemode 费用累加行为。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-F">
+<header class="am-panel-head"><span class="am-panel-id">F</span><h2>实施步骤与回归清单</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>步骤 1：固定当前行为与测试入口</h3>
+<p>扩充 <code>test/route.test.ts</code> 的 Definition、register、context、request stub，支持 classifier 调用计数、signal、branch/projection 和有效物理模型对象。增加 dispatch helper 模拟“返回 state 先保存，再发送请求”；原引用不新增记录。</p>
+<p>先添加 fixed 表征测试，不改路由行为。fixture 使用真实字段；测试模拟器不能当作真实宿主证据。</p>
+<p><strong>验证：</strong> <code>npm test -- test/route.test.ts</code> → 原测试与 fixed 新用例通过；<code>npm test</code> → 0 fail。保留原有 25 项，记录新增计数。</p>
+<h3>步骤 2：加入策略配置与版本状态</h3>
+<p>修改 RouterConfig、DEFAULT_CONFIG、CONFIG_KEYS、mergeConfig，增加 M1 配置、未知键检查和测试，同步 example。实现内部 normalizeAdaptiveState 与分支锚点辅助函数，fixed 路径不变。</p>
+<p>首次 adaptive route 检查 getBranch、getLeafId、buildSessionProjection 能力。错误指向 fixed 或升级宿主，不自动改依赖。</p>
+<p><strong>验证：</strong> <code>npm test -- test/config.test.ts test/route.test.ts</code> → 合并、非法值、迁移与 fixed 兼容通过；example 深比较通过。</p>
+<h3>步骤 3：实现分类结果与有限升级</h3>
+<p>加入 classifyComplexity 和 adaptive 选模。新 user 直接调用分类适配，不清空 state 触发初始化。实现来源过滤、ID 去重、超时、signal、答案校验和 target-missing 保持。</p>
+<p>先添加对应失败用例，确认失败来自未实现行为，再实现到通过。超时用受控 fake promise/计时器测试，不等待真实 3 秒。</p>
+<p><strong>验证：</strong> <code>npm test -- test/route.test.ts</code> → 复杂请求升级；简单/错误保持；取消 reject 且状态写入次数不变；同 ID 分类最多一次。</p>
+<h3>步骤 4：初始交接、retry 与恢复</h3>
+<p>实现内部 hasSuccessfulWriteAfterBoundary，按 D 节读取持久工具结果和 nestedCalls。retry 位于交接前。补齐 failed 模型、thinking、配置变化、目录缺失和锚点丢失。</p>
+<p>locked 阶段永不进入交接分支。模拟“返回新状态后主模型失败”，retry 不回滚、不重复升级。</p>
+<p><strong>验证：</strong> <code>npm test -- test/route.test.ts</code> → 嵌套成功、外层失败、旧编辑排除、升级锁定、retry、分支隔离通过；<code>npm test</code> → 全部离线测试通过。</p>
+<h3>步骤 5：决策记录与 M1 文档</h3>
+<p>增加结构化 debug 摘要和字段白名单测试。README 中英文区分 fixed/adaptive；修正 low confidence 必回退的承诺，将“保证一次 cache miss”改为“限制切换次数，缓存效果取决于 provider”。</p>
+<p>说明 fixed 基于转换后的最后一条 user，可能包含宿主注入内容；adaptive 使用来源投影。保留 classifier=null 的关闭说明。</p>
+<p><strong>验证：</strong> <code>npm test</code> → 全部通过；<code>git diff --check</code> → 无输出。用敏感哨兵断言日志不含输入、参数或原始服务错误。此时 M1 可标记离线验收通过。</p>
+<h3>步骤 6：默认关闭的有界历史</h3>
+<p>新增 M2 配置，内部 buildClassifierInput 按投影组织 current/recentTurns/historyPartial。提示明确字段含义，输入是待判断材料，不能改变标准。不另发摘要模型请求。</p>
+<p>仅 adaptive+recent-conversation 扩大输入；fixed 与 last-user-only 保持各自 payload 契约。同步 README/example。</p>
+<p><strong>验证：</strong> <code>npm test -- test/config.test.ts test/route.test.ts</code> → 预算、整轮裁剪、隐藏正文排除和默认 payload 不扩张通过；<code>npm test</code> → 全部离线测试通过。</p>
+<h3>步骤 7：真实宿主状态与验收记录</h3>
+<p>新增 <code>test/host-session.test.ts</code>，由 PI_ROUTER_HOST_MODULE 指向宿主公开入口并动态 import。使用公开 SessionManager 创建临时 session，不修改用户会话。未设变量则具名 skip；设了但导入失败必须 fail。</p>
+<p>已核对公开入口导出 SessionManager，支持 create、open、inMemory；实例支持 appendCustomEntry、appendContextEdit、appendCompaction、branch、getBranch、buildSessionProjection。执行时再对照版本签名。用 <code>appendCustomEntry(&quot;pi.virtual-model-state&quot;, { provider, modelId, state })</code> 构造真实分支状态记录；provider/modelId 是虚拟模型身份。测试 JSON 持久化、重开、分支、context edits、compaction 投影，再将真实数据交给公开 route。不调用私有方法，不把手工 append state 描述为真实 agent loop 验证。</p>
+<p>本机入口与拟新增测试的执行方式：</p>
+</div>
+<pre class="am-code"><code data-lang="sh">PI_ROUTER_HOST_MODULE=/Users/caph/.local/share/fnm/node-versions/v24.15.0/installation/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js npm test -- test/host-session.test.ts</code></pre>
+<div class="am-md"><p>上述命令已执行：4 tests、4 pass、0 fail、0 skipped。其他机器先定位自己的安装入口。测试构造持久记录，不代表真实 agent loop smoke。</p>
+<p>在 <code>plans/validation.md</code> 分别记录单元测试、真实 SessionManager、真实 agent loop smoke。后者使用隔离 cwd/config/session，按下列顺序验证：</p>
+<ul>
+<li>选择 jev/auto，初始规划后执行真实 Codemode 内部 write，观察下一 continuation。</li>
+<li>新复杂请求触发复杂结果后升 complex，随后写入仍保持。</li>
+<li>取消分类确认未发主模型；失败后 retry 使用 failed 模型。</li>
+<li>resume、fork、compaction 后确认状态与用户去重。</li>
+<li>核对分类 usage 是否计入 /session，是否重复记账。</li>
+</ul>
+<p><strong>验证：</strong> 宿主专项命令 → 0 fail、0 skipped；<code>npm test</code> → 全部通过；<code>git diff --check</code> → 无输出。在线 smoke 记录版本、步骤、实际选模序列；缺连接时标 blocked，不影响独立离线实现状态。</p>
+<h3>回归矩阵</h3>
+<p>用具名 it 或带 case ID 的表驱动测试。断言模型、phase、handoff、stageSeq、分类次数、状态写入次数；不能只断言不抛错。</p>
+<ul>
+<li><strong>T01–T06 fixed：</strong> 默认不变；阈值边界；previous 复用；成功/失败外层编辑；后续 user 不分类；direct 优先级与缺失模型。</li>
+<li><strong>T07–T12 升级：</strong> implementation→complex；standard→complex；复杂任务后继续；simple 保持；previous 不阻止重判；相同 ID 去重及不同 ID 同文本。</li>
+<li><strong>T13–T19 失败：</strong> disabled、分类器缺失、error 返回、抛异常、缺失/错型答案、非法概率、timeout。分别验证初始化回退与已有状态保持。</li>
+<li><strong>T20–T24 取消：</strong> 调用前、执行中、返回后 caller abort；服务自行 aborted；超时与 caller 同时发生时 caller 优先。迟到结果不写状态或未处理 rejection。</li>
+<li><strong>T25–T31 交接：</strong> 外层 ok、nested ok、nested error/unfinished、外层 error 加 nested ok、complete=false 加 ok、成功脚本不算、空白名单或 implementation=null 禁用。</li>
+<li><strong>T32–T36 边界：</strong> 阶段前旧编辑；新 user 优先；升级后写入保持；锚点丢失保持锁定；普通 continuation 不重复持久化。</li>
+<li><strong>T37–T42 retry：</strong> failed 同模型、failed 不同合规模型、无 failed、无效 provider/模型、升级保存后失败、无状态 retry 不分类。另断言 thinking 与 limits。</li>
+<li><strong>T43–T49 迁移：</strong> legacy 两阶段、槽位同 ID、旧模型缺失写回、standard 缺失、配置/provider 变化、未知 schema、adaptive→fixed。</li>
+<li><strong>T50–T56 输入：</strong> 原生 user 投影、摘要/custom/bash 排除、默认无历史、整轮预算、超大最近轮、context_edit、工具/thinking 哨兵排除。</li>
+<li><strong>T57–T60 宿主：</strong> 保存重开、不同 leaf 恢复、compaction 保持 state 并裁输入、投影与 edits。必须跑真实宿主专项。</li>
+</ul>
+<p>ID 表示覆盖类别，可包含多个测试；不以“恰好 60 tests”为完成标准。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-G">
+<header class="am-panel-head"><span class="am-panel-id">G</span><h2>完成标准、停止条件与维护</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>M1 完成标准</h3>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> 步骤 1–5 和 T01–T49 对应离线用例通过。</li>
+<li><input checked="" disabled="" type="checkbox"> npm test exit 0，保留原有 25 项，无失败改 skip。</li>
+<li><input checked="" disabled="" type="checkbox"> 默认 fixed 与基线一致；adaptive 简单/失败重判不降级。</li>
+<li><input checked="" disabled="" type="checkbox"> 初始交接与升级锁定有可读轨迹断言。</li>
+<li><input checked="" disabled="" type="checkbox"> example 与默认配置完全一致，中英文说明一致。</li>
+<li><input checked="" disabled="" type="checkbox"> git diff --check exit 0，相对开始快照无范围外变更。</li>
+</ul>
+<h3>M2 完成标准</h3>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> T50–T56 通过，历史默认关闭，预算与来源有 payload 断言。</li>
+<li><input checked="" disabled="" type="checkbox"> 宿主专项 exit 0 且零 skip，T57–T60 使用真实 SessionManager。</li>
+<li><input checked="" disabled="" type="checkbox"> validation.md 明确记录真实 agent loop smoke 是否完成。</li>
+<li><input checked="" disabled="" type="checkbox"> plans/README.md 分别记录实现、离线验收、宿主专项、在线 smoke。</li>
+<li><input checked="" disabled="" type="checkbox"> Markdown/HTML 同步，剩余限制清晰可见。</li>
+</ul>
+<h3>本机在线验收</h3>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> 最终 core 的真实 Jev p=0 初始 sol 规划、Codemode nested write 后交接 luna，每次请求前磁盘状态与路由一致。</li>
+<li><input checked="" disabled="" type="checkbox"> 真实 Jev p=1 升级 complex/stage3，后续写入和简单请求保持锁定。</li>
+<li><input checked="" disabled="" type="checkbox"> caller 取消真实分类后无主调用；注入 503 后宿主 retry 保持 failed 模型和强度。</li>
+<li><input checked="" disabled="" type="checkbox"> 重建 SDK session 的扩展续接、真实 compaction、祖先 fork 均保持各自持久阶段与用户边界。</li>
+<li><input checked="" disabled="" type="checkbox"> 直接分类未计入 /session 的宿主限制已实测并记录，脱敏证据见 live-smoke-results.json。</li>
+</ul>
+<p>以上覆盖本机 pi 1.2.0 和获准 provider，不代表所有宿主或交互式 UI 兼容。若未来在线 smoke 未完成，可提交实现供审阅，但不满足在线发布验收。自动 commit/发布不属于计划。</p>
+<h3>停止并报告</h3>
+<ul>
+<li>关键源码已漂移且无法确认已有改动归属。</li>
+<li>目标宿主缺分支/投影语义，或 ID 重用会把另一条记录误认成旧边界；不要改宿主绕过。锚点单纯缺失按 D 节保守锁定处理，不因此扩大实现。</li>
+<li>用户消息在 route 时没有持久来源，无法可靠识别边界；提供复现，不能改用全文 hash 猜。</li>
+<li>nestedCalls 无法保留成功写入状态；先缩小复现并修订兼容声明。</li>
+<li>需要新增依赖、改 engines、扩大 provider 格式或触及范围外文件。</li>
+<li>同一关键验证经两次针对性修正仍失败；保留输出，不删测试。</li>
+<li>在线缺连接或获准使用的测试材料；只阻塞在线部分，继续离线工作。</li>
+</ul>
+<h3>维护与回退</h3>
+<p>strategy=fixed 并重启即可配置回退。新会话得到基线轨迹；旧 adaptive state 的 phase/model 继续读，不自动回到更早阶段。</p>
+<p>不修改历史会话、不批量删 state。未来 schema 显式迁移，不复用版本号改变字段含义。变更模型、handoffTools、contextMode 时覆盖重建状态测试。</p>
+<p>升级 pi 后重跑 T57–T60 和 Codemode smoke，重点检查投影、nestedCalls、取消与保存时机。阈值、提示词和概率校验变更要更新 policyVersion 与评测记录。</p>
+<p>单元测试验证控制流，真实任务验收判断质量，provider 缓存统计判断成本，三者不能替代。</p>
+</div></div>
+</section>
+<section class="am-panel" id="panel-H">
+<header class="am-panel-head"><span class="am-panel-id">H</span><h2>后续实验与参考资料</h2></header>
+<div class="am-panel-body"><div class="am-md"><h3>有限升级的实际收益</h3>
+<p>M1/M2 后，在单独授权的任务集比较 fixed、adaptive、全程 complex。初始设计为六类任务，各策略重复两次，共 36 次；这是拟定预算，未执行。</p>
+<p>覆盖简单修改、跨文件设计、短指代、用户纠错、正常开发中的工具失败、长会话压缩。提前写独立验收条件，从相同快照开始，固定模型版本、工具与 thinking。调优集与验收集分开。</p>
+<p>记录通过率、误降级、升级救回、耗时、返工、切换次数、分类延迟、分类和主模型 usage、缓存统计。直接 classify 费用单独核对，避免漏算或双算。未知价格不填零。</p>
+<p>进入下一阶段的最低条件：离线规则无违规，试点通过数不低于 fixed，存在可复核升级收益，成本增长可解释。小样本仅支持继续试验，不证明统计优越。长期锁强若没有收益，记录失败再调整方案。</p>
+<h3>阶段评价仅做影子实验</h3>
+<p>阶段评价保留为后续实验，当前不得接入生产选模。它依赖原定目标、验收条件和稳定检查点；仓库尚无可信生产接口提供这些数据。</p>
+<p>脱敏样例定义 assessmentTarget：stageId、branchId、turnIds、objective、acceptanceCriteria、policyVersion、evidenceComplete。目标和标准在阶段开始时冻结；新增要求属于下一阶段，不能倒扣旧阶段。</p>
+<p>一次 classify 独立询问 complexity、performance、evidenceSufficient。performance 有明确低/中/高锚点，代码组合结果，仅在阶段匹配且证据完整充分时采用。historyPartial 与 evidenceComplete 分开，记录缺失不等于做错。</p>
+<p>样例至少包括成功、明确遗漏、缺产出、一次正常测试失败、反复无进展、新增目标、换模型修复、provider 限流。记录人工判定、输出、误报/漏报，在保留集验证。先只记录，不影响 route。</p>
+<p>未来交付 <code>plans/stage-assessment-experiment.md</code>，包含样例协议、预算、评价、结果和是否实施的结论。它不是本次必须生成的伪结果。证明信号有用并选定可信检查点后，另写自动升级/降级实现计划。</p>
+<p>检查点不能来自任意成功 bash、自称完成或一次失败。若采用宿主事件，必须写清事件名、参数、分支持久化与恢复契约。</p>
+<h3>明确后置</h3>
+<p>任务类别分支、每槽位 provider/id、多 provider 故障转移、可编辑分类标准、自动任务结束检测、自动降级和完整胜任度评分，均不进入本次产品变更。</p>
+<p>不采用结构化输出保证正确、confidence 等于正确率或文章收益可迁移的假设。文章约 92% 成本节省来自特定模型与任务，本仓库没有对应实验。</p>
+<h3>参考资料</h3>
+<ul>
+<li><a href="https://aliyun.github.io/ai-agent-handbook/cases/jev/hiroute.html">HiRoute 实践</a>：任务判断、阶段表现与代码路由分工。</li>
+<li><a href="https://aliyun.github.io/ai-agent-handbook/cases/jev/deep-dive.html">Jev 深度解析</a>：结构化判断和不确定性。</li>
+<li><a href="https://docs.typesafe.ai/confidence">TypeSafe Confidence</a>：概率分布与集中程度。</li>
+<li><a href="https://docs.typesafe.ai/patterns/fan-out">Speculative fan-out</a>：共享上下文、独立问题、代码组合。</li>
+<li>已安装 pi 的 docs/virtual-models.md、docs/models.md、docs/extensions.md：路由、分类与嵌套工具契约。</li>
+<li>已安装 pi 的 dist/core/session-manager.d.ts、dist/core/virtual-models.d.ts、dist/core/nested-tool-calls.js：投影、持久 ID、状态与嵌套记录。</li>
+</ul>
+<p>宿主版本以现场为准。本文内联实现所需的关键契约；文章提供动机，不覆盖状态机与验收规则。</p>
+</div></div>
+</section>
+</div>
+</div>
+</main>
+<footer class="am-colophon">Generated by Answer me with HTML 0.4.9 · 2026-10-16 19:03</footer>
+<textarea id="am-source" hidden readonly aria-hidden="true">---
+template: doc
+theme: blueprint
+title: pi-jev-router 有限动态升级实施计划
+subtitle: 默认保留 fixed；adaptive 有限升级、有界历史与本机真实 LLM 验收已完成。
+lang: zh
+source: 计划 001 · 基线 bb854b2 · 已核对 pi 1.2.0
+---
+
+本计划补全原方向审查，作为 M1/M2 实现与验收规格。后续 P1 的分类账和 fixed Codemode 支持修订见 [计划 002](./002-p1-accounting-fixed-codemode.md)，10 项真实复测已通过。第一版保留默认固定路由，增加显式启用的有限动态升级。短续接、分类失败和取消不会使已选强模型降级。升级后锁定规划阶段，避免重复执行首次写入交接。
+
+## A 交付目标与范围
+
+### 状态与执行约定
+
+- 编号：001。沿用已有文件名，避免原 Markdown 与 HTML 链接失效。
+- 状态：M1/M2、离线测试、真实 SessionManager 及本机 pi 1.2.0 在线 agent loop 验收已完成；未发布。真实调用、记账限制和证据见 [validation.md](./validation.md)。
+- 优先级：P1。类别：direction、correctness、tests、docs。
+- 工作量：L，拆为七个可验证步骤。风险：中。
+- 完善日期：2026-10-16。规划基线：`bb854b2e8f91b70dfc95a0a679966d37dd3348fa`。
+- 核对环境：Node.js `v24.15.0`，本机 pi `1.2.0`。
+- 依赖：现有配置解析、虚拟模型接口、`node:test`；无需新运行时依赖。
+- 2026-10-16 已按七步实现并更新 `plans/README.md`。原规格继续作为验收依据；下文基线记录不代表当前实现。
+
+执行者先完整阅读本文，再执行漂移检查与基线测试。每步通过指定验证后进入下一步。不要自动 commit、push、发布或改写用户现有配置。
+
+### 不可变约束
+
+1. 默认策略为 fixed。保持基线选模和一次交接规则；2026-10-16 用户追加授权的 P1 将首次写入证据扩展为包含成功的 nested edit/write，见计划 002。
+2. adaptive 与历史外发分别启用。动态路由不自动扩大分类输入。
+3. 物理模型仍共用 provider，沿用 complex、standard、implementation、direct 槽位。
+4. 不通过名称、价格或 contextWindow 推断模型能力；槽位由用户配置。
+5. 保留配置文件优先级、未知键告警、thinking level 优先级和 limits 同步。
+6. 状态只交给 pi 的分支状态机制保存。不用全局变量保存会话阶段。
+7. 首次写入、工具成功、测试失败和模型自述都不是质量评价。
+
+### 两项交付
+
+**M1，步骤 1–5：有限升级。** 新用户边界重新判断；有复杂结果时升级至 complex。简单结果、输入不足或分类错误保持已有模型。保留初始规划的一次写入交接；动态升级后的阶段禁止自动交接。包含取消、重试、旧状态迁移、嵌套写入与决策记录。
+
+**M2，步骤 6–7：可选背景与宿主验证。** 增加默认关闭的有界最近对话输入，完成真实 SessionManager 持久化与投影测试，编写宿主验收记录。自动评分、自动降级不属于 M2。
+
+### 允许修改的文件
+
+- `extensions/jev-router.ts`：配置、分类适配、状态归一化、决策辅助函数、注册入口。
+- `test/route.test.ts`：扩展现有 stub，增加固定策略和有限升级回归。
+- `test/config.test.ts`：新增字段、合并、默认值和非法值验证。
+- `test/host-session.test.ts`：新增；使用真实 pi SessionManager 验证分支与投影。
+- `jev-router.example.json`：继续完整列出所有默认值。
+- `README.md`：中英文行为、隐私、配置、支持范围与验证说明。
+- `plans/README.md`、本计划及对应 HTML：进度、证据和规格修订。
+- `plans/validation.md`：新增；记录宿主版本、验证结果和未执行项。
+- 2026-10-16 用户追加在线调用授权：`scripts/live-agent-smoke.ts` 和 `plans/live-smoke-results.json`，用于显式启用的真实调用及脱敏证据，不进入默认离线测试。
+
+源码保持单文件结构。可提取同文件内部函数，不拆出新架构，不为测试导出生产内部状态。
+
+M1/M2 原范围外：package.json、依赖与锁文件、RELEASING.md、LICENSE、用户配置、pi 宿主源码、凭据、跨 provider 槽位、自定义路由 DSL、新命令和 UI。后续 P1 仅追加 /jev-usage 命令与独立会话分类账；其他边界不变。仓库没有 typecheck/lint scripts；不要借本任务安装工具链。
+
+## B 当前实现与验证环境
+
+### 当前行为与代码锚点
+
+`extensions/jev-router.ts` 是唯一扩展实现。第 118 行附近的 RouterState 仅保存 phase/model。第 287 行附近的 editedThisTurn 只识别最后一条 user 消息之后、外层工具名为 edit/write 的成功结果。
+
+第 366 行附近的路由摘录：
+
+```ts
+if (request.reason === &quot;direct&quot;) return route(direct);
+const state = request.state;
+if (!state) {
+  const model = await choosePlanningModel();
+  return route(model, { phase: &quot;planning&quot;, model });
+}
+if (implementation &amp;&amp; state.phase === &quot;planning&quot; &amp;&amp; editedThisTurn(request.messages))
+  return route(implementation, { phase: &quot;implementation&quot;, model: implementation });
+return pickState(state.model);
+```
+
+choosePlanningModel 在第 379 行附近优先复用 previous 中的规划模型。有状态时不重新分类。第 397 行附近截断最后一条 user 文本，第 429 行附近比较 `p(complex) &gt;= threshold`，没有 confidence 门槛。
+
+沿用 TypeScript、ESM、tab 缩进、双引号和现有错误前缀。配置范例是 mergeConfig 与 `test/config.test.ts`；测试使用 node:test、node:assert/strict，隔离临时目录并恢复环境。
+
+`test/route.test.ts` 通过 stub 注册公开虚拟模型并调用 definition.route。扩充此入口，不测试复制的内部实现。现有示例配置测试必须继续成立：
+
+```ts
+assert.deepEqual(JSON.parse(readFileSync(path, &quot;utf-8&quot;)), DEFAULT_CONFIG);
+```
+
+新增默认字段时必须同步示例 JSON。未发现额外项目 AGENTS、CONTEXT、ADR、设计规格或 CI 文件。
+
+### 已验证与未验证
+
+规划时基线 `npm test` 输出为 25 tests、25 pass、0 fail。离线 stub 验证了 fixed 的 Astra → Luna → Luna，分类调用一次；嵌套 write 被忽略；分类 error/aborted 在现有初始化路径回退 standard。
+
+以上是规划基线。实施后配置与 route 共 149 项通过；配置真实宿主运行完整套件为 153 项通过，零 skip。经用户授权，codex-sub2api 的 sol/luna 与真实 Jev 完成 core/cancel/retry 共 8 项在线检查，core 最终 exit 0。尚未做准确率或缓存/成本收益对照。详细命令和限制见 [validation.md](./validation.md)。
+
+### pi 1.2.0 契约
+
+已核对虚拟模型文档、模型文档及相关类型和实现：
+
+- reason=user 包括 prompt、steering、follow-up；continuation 也可能由扩展消息触发。
+- previous 是最近成功响应；failed 是 retry 对应的失败物理模型和 assistant 消息。
+- 新 state 在发送主模型请求前保存，主模型失败不撤回。原 state 引用或 undefined 表示保持。
+- state 沿 session tree 继承并跨 compaction 保存；direct 没有 state。
+- `ctx.sessionManager.getBranch()` 返回当前分支的持久 entry ID；getLeafId 返回当前叶节点。
+- buildSessionProjection 返回 sourceEntry 与应用 context edits 后的 messages。已删除正文不在投影中。
+- request.messages 可将摘要、custom message、bashExecution 转为 user role。按 role 过滤不能保证只取用户输入。
+- 工具结果的 nestedCalls.calls 含 name、id、status；status 为 ok/error/unfinished。
+- complete=false 可能表示参数省略、调用截断或未完成，不代表已记录的 ok 无效。
+- 嵌套执行事件带 parentToolCallId；本实现消费持久结果，不新增事件缓存。
+- classify 通常以 stopReason=error/aborted 报失败而非 reject；仍需防御第三方抛异常。
+- 分类接口支持一次调用包含多个独立 questions，无需改为直接 HTTP 请求。
+
+### 漂移检查与命令
+
+在仓库根目录执行：
+
+```sh
+git status --short
+git diff --stat bb854b2e8f91b70dfc95a0a679966d37dd3348fa..HEAD -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+git diff -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+git diff --cached -- extensions/jev-router.ts test/route.test.ts test/config.test.ts test/host-session.test.ts jev-router.example.json README.md
+node --version
+npm test
+```
+
+规划时只有 plans/ 未跟踪。若源码或宿主关键接口漂移，先对照本节摘录，不覆盖归属未确认的改动。文档进度变化无需阻塞实现。
+
+验证入口：
+
+- `npm test -- test/config.test.ts`：配置测试通过。
+- `npm test -- test/route.test.ts`：公开 route 行为测试通过。
+- `npm test`：完整离线套件通过；宿主专项默认可 skip，但须单独报告。
+- `git diff --check`：无空白错误。
+- `git diff --name-only` 与 `git status --short`：相对开始快照没有范围外改动，包含未跟踪文件。
+
+npm 命令沿用现有 `test: node --test`，无需安装依赖。当前 Node 支持直接运行类型可擦除的 TS。目标环境若不支持，使用受支持的开发 Node 版本；不在本任务调整 engines 或添加转译器。不要声称跑过不存在的 lint/typecheck。
+
+## C 配置与分类输入契约
+
+### 配置默认字段
+
+保留现有字段和值，增加：
+
+```json
+{
+  &quot;strategy&quot;: &quot;fixed&quot;,
+  &quot;adaptive&quot;: {
+    &quot;handoffTools&quot;: [&quot;edit&quot;, &quot;write&quot;],
+    &quot;decisionTimeoutMs&quot;: 3000,
+    &quot;contextMode&quot;: &quot;last-user-only&quot;,
+    &quot;historyMaxTurns&quot;: 4,
+    &quot;historyCharLimit&quot;: 8000
+  }
+}
+```
+
+这里只展示新增字段。示例 JSON 必须保留完整配置。这些数值是初始工程预算，不是实测最优值。
+
+- strategy 仅接受 fixed/adaptive，省略时继承；null、false、非法字符串均报带路径的错误。
+- adaptive 省略时继承；显式值必须为普通对象，拒绝 null、数组和其他类型。
+- handoffTools 为去重后的非空字符串数组；允许空数组禁用初始交接。数组按文件整项覆盖。
+- 拒绝将 bash 或 codemode 加入 handoffTools。自定义工具由操作者确认其成功确实代表写入。
+- decisionTimeoutMs 为 1–60000 整数；historyMaxTurns 为 1–8 整数；historyCharLimit 为 1–32000 整数。
+- contextMode 仅接受 last-user-only/recent-conversation。新字段显式 null 不表示默认值。
+- personal → project 按字段合并；显式配置文件仍独占。不修改 DEFAULT_CONFIG 或前层对象。
+- 未知嵌套键仍告警并忽略。fixed 不消费 adaptive 字段，但解析仍验证它们。
+
+实施顺序为 M1 的 strategy、handoffTools、decisionTimeoutMs，再实现 M2 的三个历史字段。当前均已生效，示例完整列出默认值。
+
+### 分类结果与选模分开
+
+新增内部 classifyComplexity，返回具名结果，不把所有失败折成 standard 模型 ID：
+
+```ts
+type ComplexityResult =
+  | { kind: &quot;classified&quot;; probability: number; durationMs: number }
+  | { kind: &quot;unavailable&quot;; reason: string; durationMs: number }
+  | { kind: &quot;cancelled&quot;; durationMs: number };
+```
+
+unavailable.reason 实现为字符串字面量联合：disabled、missing-classifier、timeout、error、invalid-answer、missing-input。不把供应商原始错误正文写入持久状态或决策日志。
+
+adaptive 仅接受 stopReason=stop、type=choice 且 complex 概率存在、有限、位于 [0,1]。缺失、NaN、Infinity、越界均为 invalid-answer。只使用 complex 概率，不另设 confidence 门槛，也不自行重归一化。
+
+继续采用 `p(complex) &gt;= threshold`，测试等于阈值及两侧。confidence 表示分布集中程度，不是独立正确率保证。不照搬 HiRoute 的 simple&gt;=0.8。
+
+fixed 保留原分类输出行为。若共用适配函数，先通过表征测试证明缺失概率、异常和 previous 处理未变。
+
+### 取消与超时
+
+- 调用前及返回后检查 caller signal，并向分类器传递 signal。
+- caller 取消，或服务返回非本地预算导致的 aborted：中止 route，不返回新 state，不请求主模型。
+- 本地 decisionTimeoutMs 耗尽而 caller 未取消：返回 unavailable/timeout。
+- 用独立 AbortController、有限计时器和 race 保证上限；清理监听与计时器，处理迟到 rejection。
+- 不能只发 abort 然后无限等待不响应取消的 provider。
+- 分类完成至主模型发送之间的取消由宿主控制；state 已保存时遵守“不撤回”契约。
+- retry 不重新分类，不重复消耗失败请求的分类预算。
+
+### M1 默认输入
+
+adaptive 从 buildSessionProjection().entries 找到当前分支最后一个 sourceEntry.type=message 且原始 message.role=user 的贡献，使用投影后纯 text。排除图片、thinking、toolCall。
+
+“原生 user”指宿主 user 消息，可能由 SDK/扩展生成，不能保证人类手输。排除 custom_message、compaction、branch_summary、bashExecution、system。上下文扩展改写 request 内容时，默认仍使用可追溯的投影文本，并在 README 说明。
+
+仅在 reason=user 且存在尚未判断的 entry ID 时分类。缺来源或正文为空时保持已有模型；首次无状态选 standard。不能改用转换后的最后一条 user 猜正文。
+
+adaptive 的默认请求形态为 `state: { current: &quot;截断后的文本&quot; }`；questions.complexity 仍是 choice，instructions 指向 state.current。fixed 保留原 state.prompt 形态。promptLimit 沿用 JS string.slice 的 UTF-16 code unit 上限。状态与日志仅记 ID、长度、截断标志，不保存 prompt。
+
+### M2 可选历史
+
+contextMode=recent-conversation 时按原生 user entry 划分投影轮次，只加入当前轮之前最近的完整轮次。每轮仅含 user 与成功 assistant 的 text；成功指 stopReason 为 stop/toolUse。工具参数、结果、nestedCalls 参数、思考、图片、系统提示词和 error/aborted 响应均排除。
+
+- 当前输入单列，截至 promptLimit。
+- 历史从新到旧选择，最多 historyMaxTurns 轮，总文本长度不超过 historyCharLimit。
+- 超预算时删除最早完整轮次；最近一轮本身过大则历史为空，不跳过它拼接更早碎片。
+- compaction 裁掉的轮次不从原始 session 补回。context_edit 删除/替换前的正文不能重新外发。
+- historyPartial 在压缩、裁剪、上下文编辑/删除、含失败或取消响应、完整性未知时为 true；不能据此扣模型表现分。
+- JSON 使用 current 字符串、recentTurns 数组和 historyPartial 布尔值。每个历史轮次为 `{ user: string, assistant: string[] }`，按时间排列；不发送本地 entry ID。instructions 明确引用 state.current 与 state.recentTurns。历史字符也按 UTF-16 code unit 计数；预算指正文总量，不含固定 instructions 和 JSON 结构开销。
+- last-user-only 只构造当前文本，无历史字段。classifier=null 时不外发。
+- 不调用额外模型生成摘要。
+
+助手文本可能复述文件内容或密钥。投影、过滤和预算不保证绝对防泄漏；README 应明确允许外发的文本来源。
+
+## D 分支状态、迁移与写入证据
+
+### adaptive 状态格式
+
+保留 phase/model 以兼容回到 fixed，新增版本字段。建议形态：
+
+```ts
+interface AdaptiveState {
+  schemaVersion: 1;
+  policyVersion: &quot;adaptive-v1&quot;;
+  strategy: &quot;adaptive&quot;;
+  provider: string;
+  phase: &quot;planning&quot; | &quot;implementation&quot;;
+  model: string;
+  slot: &quot;complex&quot; | &quot;standard&quot; | &quot;implementation&quot; | &quot;retained&quot;;
+  stageSeq: number;
+  stageStartEntryId: string | null;
+  handoff: &quot;first-write&quot; | &quot;locked&quot;;
+  lastEvaluatedUserEntryId: string | null;
+  configKey: string;
+}
+```
+
+stageSeq 从 1 起，物理模型、phase 或 configKey 改变时加一；同一次 route 最多加一。仅更新 user ID 或锁定 handoff 不开新阶段。legacy 迁移从 1 起。同 ID 不同槽位可改 phase/slot，但不算物理切换。不存 Model、Set、Date、Error、AbortSignal 或正文。
+
+configKey 是固定字段顺序的摘要字符串，覆盖 provider、models、threshold、promptLimit 和 adaptive 配置。不含凭据，无需加密；debug 和 virtual 展示字段不影响策略身份。
+
+stageStartEntryId 使用 route 前的叶节点 ID。它是分支锚点，不是 messages 下标或时间戳。必须确认锚点在当前分支，只消费其后的证据。
+
+### 初始化、迁移、恢复
+
+- 新会话初始化 planning、stageSeq=1。仅在 reason=user、原生 user ID 与锚点均可用、implementation 非 null 且白名单非空时 first-write，否则 locked。将当前 user ID 记为 lastEvaluatedUserEntryId；复用 previous 或分类不可用也视为已处理，无 ID 则为 null。
+- 初始分类不可用选 standard；caller 取消则不初始化。
+- 初始化可复用同 provider 的 previous complex/standard，不调用分类器。不能复用 implementation 跳过规划。
+- legacy {phase,model} 迁移：保留可用模型与 phase，slot 按 phase 与配置匹配；仍不明确则 retained。
+- 迁移锚点设为当前 leaf，handoff=locked。新 user 可以升级；continuation/retry 不分类。
+- adaptive → fixed：只消费 phase/model，恢复 fixed 规则；不自动恢复更早的便宜模型。
+- configKey 变化：关闭旧交接资格，重建 locked 阶段并重设锚点。同 provider 且目录仍存在时保留模型，否则选 standard。保留已判断 user ID；只有不同的新 user ID 才进入重判，不追溯重评旧输入。旧 provider 下相同 ID 不是同一模型。
+- 状态模型从目录消失：选 standard、phase=planning、slot=standard，并写回修复后的 locked 状态与新锚点。standard 也缺失则沿用带配置路径的错误。
+- 未知 schemaVersion、非法 phase/model/计数器：明确报错并给恢复建议，不猜未来格式、不清空状态绕过。
+- 锚点不存在：不消费历史编辑，保持模型并锁定；后续新 user 仍可升级。
+
+归一化先在局部候选值中完成。分类取消时不返回候选迁移或重判状态。保持时返回原引用或 undefined；只有语义变化才返回新对象。
+
+### 初始交接的证据
+
+仅对初始 first-write 阶段生效：
+
+1. reason 必须为 continuation。新 user 优先重判，不能先消费旧写入。
+2. 当前原生 user ID 必须等于该阶段最近已判断 user ID；写入在这个 user 与阶段锚点之后。
+3. 外层 toolResult 的 toolName 在 handoffTools 且 isError=false，算写入证据。
+4. 或 nestedCalls.calls 含白名单 name 且 status=ok。外层 Codemode 失败不抹去已成功的内部写入。
+5. error、unfinished、文字声称已写入、成功 bash/codemode 外壳都不算。
+6. complete=false 时已记录的 ok 仍可作正证据；没有记录不能推出没有写入。不扫描参数或正文猜行为。
+7. 重复结果不会重复交接，因为首个交接已改变 phase/handoff。
+
+旧宿主缺 nestedCalls 时仅识别外层白名单。缺分支与投影能力时 adaptive 明确报不支持，fixed 仍可用。初始交接是保留的成本策略，不是已证明任务适合降级。
+
+## E 路由状态机与处理顺序
+
+### 优先级
+
+1. direct：沿用 direct → implementation → standard，无状态、不分类。
+2. fixed：进入原路由，不执行 adaptive 迁移和历史输入。
+3. adaptive：检查 signal、宿主能力，在内存校验和归一化状态。
+4. retry：执行失败恢复后结束，不分类、不交接。
+5. 无初始化状态：进入规划；非 user 且无合规 previous 时选 standard，不从摘要猜任务。
+6. 新 user：执行升级规则并记录判断过的 ID。
+7. continuation：仅允许初始 first-write 交接，其余保持。
+
+不能先清空 state 再调用旧 choosePlanningModel。
+
+### 新 user 升级规则
+
+- 同 entry ID 已判断：不分类、不改变阶段。不同 ID 即使文本相同仍是新请求。
+- 已在 complex 槽位：不分类，更新用户边界并关闭尚未使用的初始交接资格。
+- 其他槽位：绕过 previous 捷径，调用 classifyComplexity。
+- 有效 p&gt;=threshold：解析 complex 目标后进入 planning、handoff=locked 的新阶段。
+- p&lt;threshold、缺输入、disabled、缺分类器、timeout、error、invalid-answer：保持模型，不切 standard 或 implementation。
+- caller 取消或非预算 aborted：中止 route，不消费 user ID，不生成新阶段。
+- 正常结束的重判无论是否升级，都关闭旧 first-write，防止“继续”引发遗留降级。
+- unavailable 也标记该 user 已尝试；同 ID 不重复，下个新 ID 可重试。
+- complex 与当前物理模型相同：锁定 planning，不计物理切换。
+- 有效状态存在但 complex 目标缺失：保持模型并记录 target-missing；首次选择目标缺失仍报配置错误。
+
+因此“继续”“按第二方案做”即使分类简单，也不降低当前能力。last-user-only 仍可能漏掉隐含复杂需求；M2 改善背景，不保证消除误判。
+
+### retry
+
+优先采用 failed 物理模型和 thinkingLevel。failed 必须属于当前 provider、仍在目录，且为配置槽位或有效状态模型；否则用有效状态模型，再回退 standard。
+
+- failed 与 state 同模型：不增阶段、不重新分类。
+- failed 不同但合规：写回 failed 模型并建立 locked 阶段，避免 continuation 跳回。
+- failed 缺失：有状态就保持；无状态复用合规 previous，否则 standard，并建立 locked 状态。
+- 所有 retry 都关闭待执行的 first-write；相同模型可只改 handoff，不增 stageSeq。
+- 不按错误文本自动推断模型能力；限流、网络、context overflow 的换模恢复后置。
+
+普通路由保持虚拟级别 → 物理级别 → request.thinkingLevel 优先级。retry 有 failed.thinkingLevel 时采用它，否则沿用普通优先级。所有路径同步 limits。
+
+### 轨迹与切换上界
+
+```flow LR
+初始规划 -&gt; 实现模型: 初始阶段成功写入
+初始规划 -&gt; 锁定强规划: 新用户要求复杂任务
+实现模型 -&gt; 锁定强规划: 新用户要求复杂任务
+锁定强规划 -&gt; 锁定强规划: 续接或简单请求
+实现模型 -&gt; 实现模型: 简单结果或分类不可用
+```
+
+固定配置、无模型消失和外部切模时，每条分支最多一次初始交接，再一次升级。升级先发生则取消交接。这个结构限制来回切换，第一版不增加驻留时间或切换预算。
+
+代价是升级后可能长期使用 complex。用户可开新会话或改回 fixed；本版不自动检测任务结束并降级。
+
+### 最小决策记录
+
+debug 时每个 route 输出结构化摘要：strategy、policyVersion、requestReason、stageSeq、from/to、decisionReason、classifierStatus、有效 probability、classifierDurationMs、switched。不输出正文、工具参数或原始服务错误。
+
+decisionReason 使用稳定枚举，例如 initial、previous-reused、initial-write、upgrade、keep-simple、keep-unavailable、already-evaluated、retry-sticky、state-recovered、target-missing、direct。默认 debug=false，不增加文件日志或遥测。
+
+有 usage 时记录数值 token/cost；未知价格记 unknown，目录零报价不能解释为免费。本机 pi 1.2.0 实测扩展直接 classify 的 usage 未计入 /session；P1 已用公开 appendEntry 持久化独立分类账并提供 /jev-usage 查询。压缩 usage 正常计入。升级宿主后重新核对，不能套用 Codemode 费用累加行为。
+
+## F 实施步骤与回归清单
+
+### 步骤 1：固定当前行为与测试入口
+
+扩充 `test/route.test.ts` 的 Definition、register、context、request stub，支持 classifier 调用计数、signal、branch/projection 和有效物理模型对象。增加 dispatch helper 模拟“返回 state 先保存，再发送请求”；原引用不新增记录。
+
+先添加 fixed 表征测试，不改路由行为。fixture 使用真实字段；测试模拟器不能当作真实宿主证据。
+
+**验证：** `npm test -- test/route.test.ts` → 原测试与 fixed 新用例通过；`npm test` → 0 fail。保留原有 25 项，记录新增计数。
+
+### 步骤 2：加入策略配置与版本状态
+
+修改 RouterConfig、DEFAULT_CONFIG、CONFIG_KEYS、mergeConfig，增加 M1 配置、未知键检查和测试，同步 example。实现内部 normalizeAdaptiveState 与分支锚点辅助函数，fixed 路径不变。
+
+首次 adaptive route 检查 getBranch、getLeafId、buildSessionProjection 能力。错误指向 fixed 或升级宿主，不自动改依赖。
+
+**验证：** `npm test -- test/config.test.ts test/route.test.ts` → 合并、非法值、迁移与 fixed 兼容通过；example 深比较通过。
+
+### 步骤 3：实现分类结果与有限升级
+
+加入 classifyComplexity 和 adaptive 选模。新 user 直接调用分类适配，不清空 state 触发初始化。实现来源过滤、ID 去重、超时、signal、答案校验和 target-missing 保持。
+
+先添加对应失败用例，确认失败来自未实现行为，再实现到通过。超时用受控 fake promise/计时器测试，不等待真实 3 秒。
+
+**验证：** `npm test -- test/route.test.ts` → 复杂请求升级；简单/错误保持；取消 reject 且状态写入次数不变；同 ID 分类最多一次。
+
+### 步骤 4：初始交接、retry 与恢复
+
+实现内部 hasSuccessfulWriteAfterBoundary，按 D 节读取持久工具结果和 nestedCalls。retry 位于交接前。补齐 failed 模型、thinking、配置变化、目录缺失和锚点丢失。
+
+locked 阶段永不进入交接分支。模拟“返回新状态后主模型失败”，retry 不回滚、不重复升级。
+
+**验证：** `npm test -- test/route.test.ts` → 嵌套成功、外层失败、旧编辑排除、升级锁定、retry、分支隔离通过；`npm test` → 全部离线测试通过。
+
+### 步骤 5：决策记录与 M1 文档
+
+增加结构化 debug 摘要和字段白名单测试。README 中英文区分 fixed/adaptive；修正 low confidence 必回退的承诺，将“保证一次 cache miss”改为“限制切换次数，缓存效果取决于 provider”。
+
+说明 fixed 基于转换后的最后一条 user，可能包含宿主注入内容；adaptive 使用来源投影。保留 classifier=null 的关闭说明。
+
+**验证：** `npm test` → 全部通过；`git diff --check` → 无输出。用敏感哨兵断言日志不含输入、参数或原始服务错误。此时 M1 可标记离线验收通过。
+
+### 步骤 6：默认关闭的有界历史
+
+新增 M2 配置，内部 buildClassifierInput 按投影组织 current/recentTurns/historyPartial。提示明确字段含义，输入是待判断材料，不能改变标准。不另发摘要模型请求。
+
+仅 adaptive+recent-conversation 扩大输入；fixed 与 last-user-only 保持各自 payload 契约。同步 README/example。
+
+**验证：** `npm test -- test/config.test.ts test/route.test.ts` → 预算、整轮裁剪、隐藏正文排除和默认 payload 不扩张通过；`npm test` → 全部离线测试通过。
+
+### 步骤 7：真实宿主状态与验收记录
+
+新增 `test/host-session.test.ts`，由 PI_ROUTER_HOST_MODULE 指向宿主公开入口并动态 import。使用公开 SessionManager 创建临时 session，不修改用户会话。未设变量则具名 skip；设了但导入失败必须 fail。
+
+已核对公开入口导出 SessionManager，支持 create、open、inMemory；实例支持 appendCustomEntry、appendContextEdit、appendCompaction、branch、getBranch、buildSessionProjection。执行时再对照版本签名。用 `appendCustomEntry(&quot;pi.virtual-model-state&quot;, { provider, modelId, state })` 构造真实分支状态记录；provider/modelId 是虚拟模型身份。测试 JSON 持久化、重开、分支、context edits、compaction 投影，再将真实数据交给公开 route。不调用私有方法，不把手工 append state 描述为真实 agent loop 验证。
+
+本机入口与拟新增测试的执行方式：
+
+```sh
+PI_ROUTER_HOST_MODULE=/Users/caph/.local/share/fnm/node-versions/v24.15.0/installation/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js npm test -- test/host-session.test.ts
+```
+
+上述命令已执行：4 tests、4 pass、0 fail、0 skipped。其他机器先定位自己的安装入口。测试构造持久记录，不代表真实 agent loop smoke。
+
+在 `plans/validation.md` 分别记录单元测试、真实 SessionManager、真实 agent loop smoke。后者使用隔离 cwd/config/session，按下列顺序验证：
+
+- 选择 jev/auto，初始规划后执行真实 Codemode 内部 write，观察下一 continuation。
+- 新复杂请求触发复杂结果后升 complex，随后写入仍保持。
+- 取消分类确认未发主模型；失败后 retry 使用 failed 模型。
+- resume、fork、compaction 后确认状态与用户去重。
+- 核对分类 usage 是否计入 /session，是否重复记账。
+
+**验证：** 宿主专项命令 → 0 fail、0 skipped；`npm test` → 全部通过；`git diff --check` → 无输出。在线 smoke 记录版本、步骤、实际选模序列；缺连接时标 blocked，不影响独立离线实现状态。
+
+### 回归矩阵
+
+用具名 it 或带 case ID 的表驱动测试。断言模型、phase、handoff、stageSeq、分类次数、状态写入次数；不能只断言不抛错。
+
+- **T01–T06 fixed：** 默认不变；阈值边界；previous 复用；成功/失败外层编辑；后续 user 不分类；direct 优先级与缺失模型。
+- **T07–T12 升级：** implementation→complex；standard→complex；复杂任务后继续；simple 保持；previous 不阻止重判；相同 ID 去重及不同 ID 同文本。
+- **T13–T19 失败：** disabled、分类器缺失、error 返回、抛异常、缺失/错型答案、非法概率、timeout。分别验证初始化回退与已有状态保持。
+- **T20–T24 取消：** 调用前、执行中、返回后 caller abort；服务自行 aborted；超时与 caller 同时发生时 caller 优先。迟到结果不写状态或未处理 rejection。
+- **T25–T31 交接：** 外层 ok、nested ok、nested error/unfinished、外层 error 加 nested ok、complete=false 加 ok、成功脚本不算、空白名单或 implementation=null 禁用。
+- **T32–T36 边界：** 阶段前旧编辑；新 user 优先；升级后写入保持；锚点丢失保持锁定；普通 continuation 不重复持久化。
+- **T37–T42 retry：** failed 同模型、failed 不同合规模型、无 failed、无效 provider/模型、升级保存后失败、无状态 retry 不分类。另断言 thinking 与 limits。
+- **T43–T49 迁移：** legacy 两阶段、槽位同 ID、旧模型缺失写回、standard 缺失、配置/provider 变化、未知 schema、adaptive→fixed。
+- **T50–T56 输入：** 原生 user 投影、摘要/custom/bash 排除、默认无历史、整轮预算、超大最近轮、context_edit、工具/thinking 哨兵排除。
+- **T57–T60 宿主：** 保存重开、不同 leaf 恢复、compaction 保持 state 并裁输入、投影与 edits。必须跑真实宿主专项。
+
+ID 表示覆盖类别，可包含多个测试；不以“恰好 60 tests”为完成标准。
+
+## G 完成标准、停止条件与维护
+
+### M1 完成标准
+
+- [x] 步骤 1–5 和 T01–T49 对应离线用例通过。
+- [x] npm test exit 0，保留原有 25 项，无失败改 skip。
+- [x] 默认 fixed 与基线一致；adaptive 简单/失败重判不降级。
+- [x] 初始交接与升级锁定有可读轨迹断言。
+- [x] example 与默认配置完全一致，中英文说明一致。
+- [x] git diff --check exit 0，相对开始快照无范围外变更。
+
+### M2 完成标准
+
+- [x] T50–T56 通过，历史默认关闭，预算与来源有 payload 断言。
+- [x] 宿主专项 exit 0 且零 skip，T57–T60 使用真实 SessionManager。
+- [x] validation.md 明确记录真实 agent loop smoke 是否完成。
+- [x] plans/README.md 分别记录实现、离线验收、宿主专项、在线 smoke。
+- [x] Markdown/HTML 同步，剩余限制清晰可见。
+
+### 本机在线验收
+
+- [x] 最终 core 的真实 Jev p=0 初始 sol 规划、Codemode nested write 后交接 luna，每次请求前磁盘状态与路由一致。
+- [x] 真实 Jev p=1 升级 complex/stage3，后续写入和简单请求保持锁定。
+- [x] caller 取消真实分类后无主调用；注入 503 后宿主 retry 保持 failed 模型和强度。
+- [x] 重建 SDK session 的扩展续接、真实 compaction、祖先 fork 均保持各自持久阶段与用户边界。
+- [x] 直接分类未计入 /session 的宿主限制已实测并记录，脱敏证据见 live-smoke-results.json。
+
+以上覆盖本机 pi 1.2.0 和获准 provider，不代表所有宿主或交互式 UI 兼容。若未来在线 smoke 未完成，可提交实现供审阅，但不满足在线发布验收。自动 commit/发布不属于计划。
+
+### 停止并报告
+
+- 关键源码已漂移且无法确认已有改动归属。
+- 目标宿主缺分支/投影语义，或 ID 重用会把另一条记录误认成旧边界；不要改宿主绕过。锚点单纯缺失按 D 节保守锁定处理，不因此扩大实现。
+- 用户消息在 route 时没有持久来源，无法可靠识别边界；提供复现，不能改用全文 hash 猜。
+- nestedCalls 无法保留成功写入状态；先缩小复现并修订兼容声明。
+- 需要新增依赖、改 engines、扩大 provider 格式或触及范围外文件。
+- 同一关键验证经两次针对性修正仍失败；保留输出，不删测试。
+- 在线缺连接或获准使用的测试材料；只阻塞在线部分，继续离线工作。
+
+### 维护与回退
+
+strategy=fixed 并重启即可配置回退。新会话得到基线轨迹；旧 adaptive state 的 phase/model 继续读，不自动回到更早阶段。
+
+不修改历史会话、不批量删 state。未来 schema 显式迁移，不复用版本号改变字段含义。变更模型、handoffTools、contextMode 时覆盖重建状态测试。
+
+升级 pi 后重跑 T57–T60 和 Codemode smoke，重点检查投影、nestedCalls、取消与保存时机。阈值、提示词和概率校验变更要更新 policyVersion 与评测记录。
+
+单元测试验证控制流，真实任务验收判断质量，provider 缓存统计判断成本，三者不能替代。
+
+## H 后续实验与参考资料
+
+### 有限升级的实际收益
+
+M1/M2 后，在单独授权的任务集比较 fixed、adaptive、全程 complex。初始设计为六类任务，各策略重复两次，共 36 次；这是拟定预算，未执行。
+
+覆盖简单修改、跨文件设计、短指代、用户纠错、正常开发中的工具失败、长会话压缩。提前写独立验收条件，从相同快照开始，固定模型版本、工具与 thinking。调优集与验收集分开。
+
+记录通过率、误降级、升级救回、耗时、返工、切换次数、分类延迟、分类和主模型 usage、缓存统计。直接 classify 费用单独核对，避免漏算或双算。未知价格不填零。
+
+进入下一阶段的最低条件：离线规则无违规，试点通过数不低于 fixed，存在可复核升级收益，成本增长可解释。小样本仅支持继续试验，不证明统计优越。长期锁强若没有收益，记录失败再调整方案。
+
+### 阶段评价仅做影子实验
+
+阶段评价保留为后续实验，当前不得接入生产选模。它依赖原定目标、验收条件和稳定检查点；仓库尚无可信生产接口提供这些数据。
+
+脱敏样例定义 assessmentTarget：stageId、branchId、turnIds、objective、acceptanceCriteria、policyVersion、evidenceComplete。目标和标准在阶段开始时冻结；新增要求属于下一阶段，不能倒扣旧阶段。
+
+一次 classify 独立询问 complexity、performance、evidenceSufficient。performance 有明确低/中/高锚点，代码组合结果，仅在阶段匹配且证据完整充分时采用。historyPartial 与 evidenceComplete 分开，记录缺失不等于做错。
+
+样例至少包括成功、明确遗漏、缺产出、一次正常测试失败、反复无进展、新增目标、换模型修复、provider 限流。记录人工判定、输出、误报/漏报，在保留集验证。先只记录，不影响 route。
+
+未来交付 `plans/stage-assessment-experiment.md`，包含样例协议、预算、评价、结果和是否实施的结论。它不是本次必须生成的伪结果。证明信号有用并选定可信检查点后，另写自动升级/降级实现计划。
+
+检查点不能来自任意成功 bash、自称完成或一次失败。若采用宿主事件，必须写清事件名、参数、分支持久化与恢复契约。
+
+### 明确后置
+
+任务类别分支、每槽位 provider/id、多 provider 故障转移、可编辑分类标准、自动任务结束检测、自动降级和完整胜任度评分，均不进入本次产品变更。
+
+不采用结构化输出保证正确、confidence 等于正确率或文章收益可迁移的假设。文章约 92% 成本节省来自特定模型与任务，本仓库没有对应实验。
+
+### 参考资料
+
+- [HiRoute 实践](https://aliyun.github.io/ai-agent-handbook/cases/jev/hiroute.html)：任务判断、阶段表现与代码路由分工。
+- [Jev 深度解析](https://aliyun.github.io/ai-agent-handbook/cases/jev/deep-dive.html)：结构化判断和不确定性。
+- [TypeSafe Confidence](https://docs.typesafe.ai/confidence)：概率分布与集中程度。
+- [Speculative fan-out](https://docs.typesafe.ai/patterns/fan-out)：共享上下文、独立问题、代码组合。
+- 已安装 pi 的 docs/virtual-models.md、docs/models.md、docs/extensions.md：路由、分类与嵌套工具契约。
+- 已安装 pi 的 dist/core/session-manager.d.ts、dist/core/virtual-models.d.ts、dist/core/nested-tool-calls.js：投影、持久 ID、状态与嵌套记录。
+
+宿主版本以现场为准。本文内联实现所需的关键契约；文章提供动机，不覆盖状态机与验收规则。
+</textarea>
+<script>
+(() => {
+  const root = document.documentElement;
+  const cycle = (list, cur) => list[(list.indexOf(cur) + 1) % list.length];
+  const label = (btn, value) => {
+    const map = JSON.parse(btn.dataset.labels || '{}');
+    btn.textContent = map[value] || value;
+  };
+  const bind = (name, attr, values) => {
+    const btn = document.querySelector(`[data-am="${name}"]`);
+    if (!btn) return;
+    label(btn, root.getAttribute(attr));
+    btn.addEventListener('click', () => {
+      const next = cycle(values, root.getAttribute(attr));
+      root.setAttribute(attr, next);
+      label(btn, next);
+    });
+  };
+  bind('theme', 'data-theme', ['blueprint', 'shadcn']);
+  bind('mode', 'data-mode', ['auto', 'light', 'dark']);
+
+  const copyBtn = document.querySelector('[data-am="copy"]');
+  copyBtn?.addEventListener('click', async () => {
+    const nodes = document.querySelectorAll('#am-source');
+    const text = nodes[nodes.length - 1]?.value ?? '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    const original = copyBtn.textContent;
+    copyBtn.textContent = copyBtn.dataset.done;
+    setTimeout(() => { copyBtn.textContent = original; }, 1400);
+  });
+})();
+(() => {
+// Pure planner for justified ("photo wall") rows on sheet pages. No DOM access.
+//
+// This file must stay inlinable into the page script: top-level declarations only, no imports, and the exports are
+// `planLayout` and the constants the DOM adapter shares (STEP, MAX_SCALE, MIN_SCALE). The page build strips the `export ` keyword,
+// and test/layout-plan.test.js checks that this still works.
+//
+// planLayout({ width, gap, cols, panels }) -> { rows: [{ columns: [{ panels: [index, ...], width }], height }] }
+//
+// Input (all lengths in px):
+//   width   container width
+//   gap     space between columns, and between two panels stacked in one column
+//   cols    most columns in one row (the planner never uses more than MAX_COLUMNS, but spans stay shares of `cols`)
+//   panels  one entry per panel, in reading order:
+//     samples   [{ w, h }] panel height at sampled widths, ascending by w (heights between samples are interpolated)
+//     minWidth  narrowest feasible width (clamped to `width`)
+//     maxWidth  widest useful width; beyond it the panel only gains empty space (default: no limit)
+//     natural   natural diagram width for a diagram-only panel (default: none)
+//     pad       panel width not used by the diagram (padding and border; default 0)
+//     span      the author's width hint in grid columns (default 1); span >= cols keeps the panel alone in its row
+//
+// Output: { rows, maxScale }. Rows are in reading order; a row is a list of columns (at most `cols`); a column holds one panel or two
+// consecutive panels, stacked. For integer inputs the column widths plus the gaps between them equal `width`.
+// Rows are chosen by dynamic programming over break points; widths by a search in STEP px steps. Cost per row:
+//   H = tallest column; waste = sum((H - columnHeight) * columnWidth) + sum over diagrams wider than maxWidth of (w - maxWidth) * h
+//   dev = sum(((w - preferred) / oneColumn)^2) + SCALE_WEIGHT * sum over diagrams of (ln(scale) / ln(MAX_SCALE))^2
+//   cost = waste / 1000 + PREF_WEIGHT * dev * H
+// Scale band: diagrams on one page stay at similar sizes. With the result's `maxScale` as the diagram size limit, a diagram is
+// shown at scale min(maxScale, (width - pad) / natural). The planner tries a few bands [lo, lo * BAND_RATIO] (lo in BAND_LOS) and
+// keeps the cheapest plan in which no diagram is narrower than scale lo and none is shown above the band's top, so the largest and
+// smallest diagram scale on the page differ by at most BAND_RATIO. A panel wider than its diagram's top size keeps the diagram at
+// that size, and the page script must set the diagram's max-width to natural * maxScale. The band starts no higher than the
+// largest scale the page allows the least roomy diagram, so one wide diagram lowers the band for the others.
+// If no band is feasible the plan is made without a band (maxScale = MAX_SCALE); if no plan fits (or the input is unusable) the
+// result is a single column: one panel per row at the full width.
+
+const STEP = 10;
+const MAX_SCALE = 1.25;
+const MIN_SCALE = 0.75; // the narrowest a diagram is shown, as a share of its natural width
+const MAX_COLUMNS = 6; // rows with more columns are unreadable, and the search grows steeply with the column count
+const BAND_RATIO = 1.25; // the largest and smallest diagram scale on a page differ by at most this
+const BAND_LOS = [MIN_SCALE, 0.85, 0.95, 1]; // lower ends tried for the band; lo * BAND_RATIO is the upper end (1.25 means no upper limit)
+const SCALE_WEIGHT = 3;
+const PREF_WEIGHT = 0.15;
+
+function heightAt(samples, w) {
+  const i = samples.findIndex((s) => s.w >= w);
+  if (i === -1) return samples[samples.length - 1].h;
+  if (i === 0) return samples[0].h;
+  const a = samples[i - 1];
+  const b = samples[i];
+  return a.h + ((b.h - a.h) * (w - a.w)) / (b.w - a.w);
+}
+
+// Every way to split `len` consecutive panels into columns of 1 or 2 panels, as lists of column sizes.
+function splits(len) {
+  if (len === 0) return [[]];
+  return [1, 2].filter((k) => k <= len).flatMap((k) => splits(len - k).map((rest) => [k, ...rest]));
+}
+
+function singleColumn(width, panels) {
+  return { rows: panels.map((_, i) => ({ columns: [{ panels: [i], width }], height: 0 })) };
+}
+
+function planLayout({ width, gap = 0, cols = 3, panels }) {
+  const usable = Number.isFinite(width) && width > 0 && panels.every((p) => Array.isArray(p.samples) && p.samples.length > 0);
+  if (!usable) return singleColumn(width, panels);
+
+  // `cols` stays the unit of the author's spans; no row gets more than MAX_COLUMNS columns however large `cols` is.
+  const maxColumns = Math.min(cols, MAX_COLUMNS);
+  const oneColumn = Math.max(1, (width - gap * (cols - 1)) / cols);
+  // Per-panel limits. With a band [lo, lo * BAND_RATIO], a diagram is no narrower than scale lo and shown at most at the top of the
+  // band: a wider panel keeps it at that size and gains empty space, which the cost counts as waste.
+  const prepare = (lo) => panels.map((p) => {
+    const pad = p.pad ?? 0;
+    const diagram = lo > 0 && p.natural > 0;
+    const scaleCap = diagram ? Math.min(MAX_SCALE, lo * BAND_RATIO) : MAX_SCALE;
+    return {
+      ...p,
+      minWidth: Math.min(width, Math.max(Math.ceil(p.minWidth || 0), diagram ? Math.ceil(p.natural * lo + pad) : 0)),
+      maxWidth: Math.min(p.maxWidth ?? Infinity, diagram ? p.natural * scaleCap + pad : Infinity),
+      scaleCap,
+      pad,
+      preferred: Math.min(width, (p.span ?? 1) * oneColumn + ((p.span ?? 1) - 1) * gap),
+      alone: (p.span ?? 1) >= cols,
+    };
+  });
+  let info = prepare(0);
+  // Beyond its maxWidth a panel only gains empty space, so its height stops changing there (matters when a band lowers maxWidth).
+  const heightOf = (p, w) => heightAt(p.samples, Math.min(w, p.maxWidth));
+  const columnHeight = (col, w) => col.reduce((h, k) => h + heightOf(info[k], w), 0) + gap * (col.length - 1);
+
+  function bestColumns(columns) {
+    const avail = width - gap * (columns.length - 1);
+    const mins = columns.map((c) => Math.max(...c.map((k) => info[k].minWidth)));
+    const minsFrom = mins.map((_, n) => mins.slice(n).reduce((s, w) => s + w, 0));
+    if (minsFrom[0] > avail) return null;
+    let best = null;
+    const evaluate = (ws) => {
+      const hs = ws.map((w, n) => columnHeight(columns[n], w));
+      const H = Math.max(...hs);
+      let waste = 0;
+      let dev = 0;
+      ws.forEach((w, n) => {
+        waste += (H - hs[n]) * w;
+        for (const k of columns[n]) {
+          const p = info[k];
+          if (w > p.maxWidth) waste += (w - p.maxWidth) * heightOf(p, w);
+          dev += ((w - p.preferred) / oneColumn) ** 2;
+          if (p.natural > 0) {
+            const scale = Math.min(p.scaleCap, Math.max(w - p.pad, 1) / p.natural);
+            dev += SCALE_WEIGHT * (Math.log(scale) / Math.log(MAX_SCALE)) ** 2;
+          }
+        }
+      });
+      const cost = waste / 1000 + PREF_WEIGHT * dev * H;
+      if (!best || cost < best.cost) best = { cost, ws, height: H, columns };
+    };
+    const choose = (n, used, ws) => {
+      if (n === columns.length - 1) {
+        const w = avail - used;
+        if (w >= mins[n]) evaluate([...ws, w]);
+        return;
+      }
+      for (let w = mins[n]; used + w + minsFrom[n + 1] <= avail; w += STEP) choose(n + 1, used + w, [...ws, w]);
+    };
+    choose(0, 0, []);
+    return best;
+  }
+
+  // Best columns for one row of panels i..j.
+  function bestRow(i, j) {
+    if (j > i && info.slice(i, j + 1).some((p) => p.alone)) return null;
+    let best = null;
+    for (const split of splits(j - i + 1)) {
+      if (split.length > maxColumns) continue;
+      let next = i;
+      const columns = split.map((size) => Array.from({ length: size }, () => next++));
+      const r = bestColumns(columns);
+      if (r && (!best || r.cost < best.cost)) best = r;
+    }
+    return best;
+  }
+
+  // Row breaks in reading order, for the band set up in `info`. A row holds at most 2 * maxColumns panels. Null if nothing fits.
+  function solve() {
+    const n = panels.length;
+    const total = Array(n + 1).fill(Infinity);
+    const from = Array(n + 1).fill(-1);
+    const chosen = Array(n + 1).fill(null);
+    total[0] = 0;
+    for (let j = 1; j <= n; j++) {
+      for (let i = Math.max(0, j - 2 * maxColumns); i < j; i++) {
+        if (total[i] === Infinity) continue;
+        const r = bestRow(i, j - 1);
+        if (r && total[i] + r.cost < total[j]) {
+          total[j] = total[i] + r.cost;
+          from[j] = i;
+          chosen[j] = r;
+        }
+      }
+    }
+    if (total[n] === Infinity) return null;
+    const rows = [];
+    for (let j = n; j > 0; j = from[j]) {
+      const r = chosen[j];
+      rows.unshift({ columns: r.columns.map((panelsInColumn, c) => ({ panels: panelsInColumn, width: r.ws[c] })), height: r.height });
+    }
+    return { rows, cost: total[n] };
+  }
+
+  let best = null;
+  const diagrams = panels.filter((p) => p.natural > 0);
+  if (diagrams.length > 1) {
+    // No diagram can be shown larger than the page allows, so the band cannot start above the smallest of those limits.
+    const reach = Math.min(...diagrams.map((p) => Math.min(MAX_SCALE, Math.max(width - (p.pad ?? 0), 1) / p.natural)));
+    for (const lo of new Set([...BAND_LOS.filter((x) => x < reach), reach])) {
+      info = prepare(lo);
+      const r = solve();
+      if (r && (!best || r.cost < best.cost)) best = { ...r, maxScale: Math.min(MAX_SCALE, lo * BAND_RATIO) };
+    }
+    info = prepare(0);
+  }
+  best ??= solve();
+  return best ? { rows: best.rows, maxScale: best.maxScale ?? MAX_SCALE } : singleColumn(width, panels);
+}
+
+// DOM adapter for the sheet's justified ("photo wall") layout. Not a module: compose.js puts it after src/runtime/layout-plan.js
+// (which defines planLayout and the shared STEP, MAX_SCALE, MIN_SCALE) inside one function scope of the page script.
+//
+// It measures every panel at sampled widths, asks planLayout for rows and column widths, and applies them with flexbox.
+// The rendered HTML keeps the plain CSS grid: with JavaScript off, at the single-column breakpoint, or while printing, the grid is what
+// shows (the planned widths belong to the screen width, so print never gets a mix of the two); after printing the layout comes back.
+
+const grid = document.querySelector('.am-grid');
+const panels = grid ? [...grid.children].filter((el) => el.classList.contains('am-panel')) : [];
+
+if (panels.length > 1) {
+  const SINGLE_COLUMN = '(max-width: 760px)'; // the single-column breakpoint in src/themes/base.css
+  const TWO_COLUMNS = '(max-width: 1100px)'; // below this the CSS grid has two columns
+  const SAMPLE_STEP = 20; // width sampling step, px; the planner interpolates between samples
+  const TEXT_MIN = 260; // text keeps at least about 16 CJK characters per line
+  const TABLE_COL_MIN = 96; // per table column, px
+  const DIAGRAM_MIN = 160;
+  const RESIZE_DELAY = 150;
+  const OVERFLOWING = '.am-table-wrap, .am-diagram, .am-annot-scroll, pre';
+
+  const original = new Map([grid, ...panels, ...grid.querySelectorAll('.am-diagram > svg')].map((el) => [el, el.getAttribute('style')]));
+  const restoreStyle = (el) => (original.get(el) === null ? el.removeAttribute('style') : el.setAttribute('style', original.get(el)));
+
+  // Back to the plain grid markup and styles.
+  const restore = () => {
+    for (const box of grid.querySelectorAll(':scope > .am-col')) box.replaceWith(...box.children);
+    for (const el of original.keys()) restoreStyle(el);
+  };
+
+  // The author's width hint, rendered as data-span only when the author wrote one. The inline grid-column is the no-JavaScript fallback
+  // and may hold spans the server added, so it is never read here.
+  const spanHint = (el) => Number(el.dataset.span) || 1;
+  const diagramOnly = (el) => {
+    const body = el.querySelector(':scope > .am-panel-body');
+    return body && body.children.length === 1 ? body.querySelector(':scope > .am-diagram > svg') : null;
+  };
+  const naturalWidth = (svg) => Number(svg.getAttribute('width')) || 0;
+
+  // Height (and, for panels with tables or code, the narrowest width without sideways scrolling) at sampled widths.
+  // Only one panel is displayed while it is measured, so each width change lays out that panel alone.
+  function measure(width) {
+    grid.style.display = 'block';
+    for (const el of panels) {
+      el.style.display = 'none';
+      el.style.boxSizing = 'border-box';
+      for (const svg of el.querySelectorAll('.am-diagram > svg')) {
+        svg.style.width = '100%';
+        svg.style.maxWidth = `${naturalWidth(svg) * MAX_SCALE}px`;
+      }
+    }
+    const info = panels.map((el) => {
+      const svg = diagramOnly(el);
+      const svgs = [...el.querySelectorAll('.am-diagram > svg')];
+      const scrollers = el.querySelectorAll(OVERFLOWING);
+      const tableCols = Math.max(0, ...[...el.querySelectorAll('table tr:first-child')].map((tr) => tr.children.length));
+      el.style.display = '';
+      el.style.width = `${width}px`;
+      const pad = svg ? el.offsetWidth - svg.parentElement.clientWidth : 0;
+      const natural = svg ? naturalWidth(svg) : 0;
+      const shrunk = Math.max(0, ...svgs.map((s) => naturalWidth(s) * MIN_SCALE)) + (svg ? pad : 34);
+      const floor = svg ? Math.max(DIAGRAM_MIN, natural * MIN_SCALE + pad) : Math.max(TEXT_MIN, shrunk, tableCols * TABLE_COL_MIN + 34);
+      const from = Math.min(width, Math.floor(floor / STEP) * STEP);
+      const samples = [];
+      let fits = null;
+      for (let w = from; ; w += SAMPLE_STEP) {
+        w = Math.min(w, width);
+        el.style.width = `${w}px`;
+        if (fits === null && !svg && scrollers.length && ![...scrollers].some((s) => s.scrollWidth > s.clientWidth + 1)) fits = w;
+        samples.push({ w, h: el.offsetHeight });
+        if (w === width) break;
+      }
+      el.style.display = 'none';
+      return {
+        samples,
+        minWidth: svg ? floor : Math.max(floor, fits ?? (scrollers.length ? width : 0)),
+        maxWidth: svg ? natural * MAX_SCALE + pad : Infinity,
+        natural,
+        pad,
+        span: spanHint(el),
+      };
+    });
+    for (const el of panels) {
+      el.style.display = '';
+      el.style.width = '';
+    }
+    return info;
+  }
+
+  // Each column gets a fixed width. A row adds up to the full width, so flex-wrap breaks rows by itself.
+  // Stacked panels go into a column wrapper whose last panel absorbs the extra height.
+  function apply(plan, gap) {
+    grid.style.display = 'flex';
+    grid.style.flexWrap = 'wrap';
+    grid.style.alignItems = 'stretch';
+    grid.style.gap = `${gap}px`;
+    for (const el of panels) {
+      el.style.gridColumn = '';
+      el.style.gridRow = '';
+      el.style.flex = '0 0 auto';
+    }
+    for (const row of plan.rows) {
+      for (const col of row.columns) {
+        const width = `${col.width}px`;
+        if (col.panels.length === 1) {
+          panels[col.panels[0]].style.width = width;
+          continue;
+        }
+        const box = document.createElement('div');
+        box.className = 'am-col';
+        box.style.cssText = `width:${width};flex:0 0 auto;display:flex;flex-direction:column;gap:${gap}px`;
+        panels[col.panels[0]].before(box);
+        for (const k of col.panels) {
+          panels[k].style.width = '';
+          box.append(panels[k]);
+        }
+        panels[col.panels[col.panels.length - 1]].style.flex = '1 1 auto';
+      }
+    }
+  }
+
+  // Diagram-only panels show their diagram at most at the top of the page's scale band; a wider panel gains empty space instead.
+  function capDiagrams(maxScale) {
+    for (const el of panels) {
+      const svg = diagramOnly(el);
+      if (svg) svg.style.maxWidth = `${naturalWidth(svg) * maxScale}px`;
+    }
+  }
+
+  const containerWidth = () => Math.floor(grid.getBoundingClientRect().width);
+
+  function justify() {
+    if (printing || printQuery.matches) return;
+    try {
+      // A vertical scrollbar can appear or vanish once the rows change height; plan again if the width moved.
+      let planned = -1;
+      for (let pass = 0; pass < 3 && planned !== containerWidth(); pass++) {
+        restore();
+        if (matchMedia(SINGLE_COLUMN).matches) return;
+        planned = containerWidth();
+        const gap = parseFloat(getComputedStyle(grid).columnGap) || 0;
+        const cols = Math.max(1, Number(getComputedStyle(grid).getPropertyValue('--cols')) || 3);
+        const plan = planLayout({ width: planned, gap, cols: matchMedia(TWO_COLUMNS).matches ? Math.min(cols, 2) : cols, panels: measure(planned) });
+        apply(plan, gap);
+        capDiagrams(plan.maxScale);
+      }
+      // The width never settled: columns planned for another width would overflow or leave gaps, so show the plain grid.
+      if (planned !== containerWidth()) restore();
+    } catch {
+      restore();
+    }
+  }
+
+  // Printing: back to the plain grid (spans and all), and the layout again afterwards. Browsers disagree on which of the
+  // `beforeprint` event and the print media query change fires first, or at all, so listen to both; both are idempotent.
+  // While `printing` is set (beforeprint to afterprint) justify() does nothing, so a late resize cannot bring flex widths into the print layout.
+  let printing = false;
+  const printQuery = matchMedia('print');
+  let timer = 0;
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(justify, RESIZE_DELAY);
+  };
+  const toPrint = () => {
+    clearTimeout(timer);
+    restore();
+  };
+  justify();
+  addEventListener('resize', later);
+  addEventListener('beforeprint', () => {
+    printing = true;
+    toPrint();
+  });
+  addEventListener('afterprint', () => {
+    printing = false;
+    later();
+  });
+  printQuery.addEventListener('change', (e) => (e.matches ? toPrint() : later()));
+  // Late changes to panel heights: web fonts arriving, and images inside the grid finishing their load (load does not bubble, so capture it).
+  document.fonts?.ready.then(later);
+  grid.addEventListener('load', later, true);
+  // Switching theme changes paddings and fonts, hence panel heights.
+  document.querySelector('[data-am="theme"]')?.addEventListener('click', later);
+}
+})();
+</script>
+</body>
+</html>

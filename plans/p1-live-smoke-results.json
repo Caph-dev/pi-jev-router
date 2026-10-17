@@ -1,0 +1,2011 @@
+{
+  "schemaVersion": 1,
+  "scriptSha256": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+  "scope": "P1 rerun; all four scenarios use the same script and public usage command. Costs with unknown pricing are not assumed zero. classifierBudgetMs applies to adaptive only.",
+  "scenarios": {
+    "fixed": {
+      "scriptSha256": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+      "config": {
+        "classifierBudgetMs": 3000,
+        "history": "last-user-only",
+        "thinking": "low"
+      },
+      "scenario": "fixed",
+      "startedAt": "2026-10-16T10:57:36.435Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "default fixed recognizes real Codemode nested write, hands sol to luna and exposes durable usage",
+        "fixed later user and reopened continuation keep luna without reclassification or duplicate ledger usage"
+      ],
+      "runs": [
+        {
+          "label": "fixed",
+          "sessionFile": "<temporary-run>/fixed/sessions/2026-10-16T10-57-36-467Z_01a1445c-36d3-712b-b4d1-2b837c54158f.jsonl",
+          "routes": [
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol"
+              }
+            },
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            },
+            {
+              "reason": "user",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "1e0e10f1-0f49-4010-b024-27293a994436",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "1e0e10f1-0f49-4010-b024-27293a994436",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 395,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 428
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 0,
+              "durationMs": 626,
+              "usage": {
+                "input": 395,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 428,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "toolUse"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/fixed/sessions/2026-10-16T10-57-36-467Z_01a1445c-36d3-712b-b4d1-2b837c54158f.jsonl",
+            "sessionId": "01a1445c-36d3-712b-b4d1-2b837c54158f",
+            "userMessages": 2,
+            "assistantMessages": 3,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 7,
+            "tokens": {
+              "input": 10509,
+              "output": 121,
+              "cacheRead": 5120,
+              "cacheWrite": 0,
+              "total": 15750
+            },
+            "cost": 0.0112098,
+            "contextUsage": {
+              "tokens": 5373,
+              "contextWindow": 272000,
+              "percent": 1.9753676470588237
+            }
+          }
+        },
+        {
+          "label": "fixed-reopen",
+          "sessionFile": "<temporary-run>/fixed/sessions/2026-10-16T10-57-36-467Z_01a1445c-36d3-712b-b4d1-2b837c54158f.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "1e0e10f1-0f49-4010-b024-27293a994436",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "1e0e10f1-0f49-4010-b024-27293a994436",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 395,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 428
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/fixed/sessions/2026-10-16T10-57-36-467Z_01a1445c-36d3-712b-b4d1-2b837c54158f.jsonl",
+            "sessionId": "01a1445c-36d3-712b-b4d1-2b837c54158f",
+            "userMessages": 2,
+            "assistantMessages": 4,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 8,
+            "tokens": {
+              "input": 15897,
+              "output": 126,
+              "cacheRead": 5120,
+              "cacheWrite": 0,
+              "total": 21143
+            },
+            "cost": 0.0117511,
+            "contextUsage": {
+              "tokens": 5393,
+              "contextWindow": 272000,
+              "percent": 1.982720588235294
+            }
+          }
+        }
+      ],
+      "commandQueries": [
+        {
+          "label": "fixed",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        },
+        {
+          "label": "fixed",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        },
+        {
+          "label": "fixed-reopen",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 395,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 428
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T10:57:48.140Z",
+      "httpCount": 5,
+      "chatDispatchCount": 4
+    },
+    "core": {
+      "scriptSha256": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+      "config": {
+        "classifierBudgetMs": 3000,
+        "history": "last-user-only",
+        "thinking": "low"
+      },
+      "scenario": "core",
+      "startedAt": "2026-10-16T10:57:36.357Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "real Codemode nested write hands sol planning to luna; state saved before dispatch",
+        "fresh runtime resumes persisted implementation; same user continuation does not classify",
+        "real complex classification upgrades luna to sol; post-write continuation remains locked complex",
+        "simple new user after upgrade stays complex without classifier",
+        "real compaction uses direct luna; reopen preserves complex state and user deduplication",
+        "persisted fork inherits selected ancestor implementation while original remains complex"
+      ],
+      "runs": [
+        {
+          "label": "initial",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+          "routes": [
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "a1724633"
+              }
+            },
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 409,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 442
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 0,
+              "durationMs": 702,
+              "usage": {
+                "input": 409,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 442,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "a1724633"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "a1724633"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "toolUse"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna",
+            "slot": "implementation",
+            "handoff": "locked",
+            "stageSeq": 2,
+            "lastEvaluatedUserEntryId": "a1724633",
+            "stageStartEntryId": "5db3914c"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+            "sessionId": "01a1445c-3675-77c3-9969-b54611369e96",
+            "userMessages": 1,
+            "assistantMessages": 2,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 5,
+            "tokens": {
+              "input": 10323,
+              "output": 52,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 10375
+            },
+            "cost": 0.0110884,
+            "contextUsage": {
+              "tokens": 5284,
+              "contextWindow": 272000,
+              "percent": 1.9426470588235296
+            }
+          }
+        },
+        {
+          "label": "resume",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            },
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "reason": "continuation",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "reason": "direct",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": null
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 2,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 876,
+              "output": 66,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 942
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 2,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 2,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 876,
+              "output": 66,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 942
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 2,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 409,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 442
+                },
+                "cost": "unknown"
+              }
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "a60dc7a8-b8b2-4e93-b5e7-e3ffd0dc829e",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "a60dc7a8-b8b2-4e93-b5e7-e3ffd0dc829e",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 467,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 500
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 1,
+              "durationMs": 580,
+              "usage": {
+                "input": 467,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 500,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "545f29e9",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            },
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            },
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "toolUse"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "complex",
+            "handoff": "locked",
+            "stageSeq": 3,
+            "lastEvaluatedUserEntryId": "fd42f7d8",
+            "stageStartEntryId": "545f29e9"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+            "sessionId": "01a1445c-3675-77c3-9969-b54611369e96",
+            "userMessages": 3,
+            "assistantMessages": 6,
+            "toolCalls": 2,
+            "toolResults": 2,
+            "totalMessages": 12,
+            "tokens": {
+              "input": 12934,
+              "output": 830,
+              "cacheRead": 29056,
+              "cacheWrite": 0,
+              "total": 42820
+            },
+            "cost": 0.01911348,
+            "contextUsage": {
+              "tokens": null,
+              "contextWindow": 353000,
+              "percent": null
+            }
+          }
+        },
+        {
+          "label": "after-compact",
+          "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 2,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 876,
+              "output": 66,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 942
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 2,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 2,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 876,
+              "output": 66,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 942
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 2,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 409,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 442
+                },
+                "cost": "unknown"
+              }
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "a60dc7a8-b8b2-4e93-b5e7-e3ffd0dc829e",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "a60dc7a8-b8b2-4e93-b5e7-e3ffd0dc829e",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 467,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 500
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "complex",
+                "handoff": "locked",
+                "stageSeq": 3,
+                "lastEvaluatedUserEntryId": "fd42f7d8",
+                "stageStartEntryId": "545f29e9"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "complex",
+            "handoff": "locked",
+            "stageSeq": 3,
+            "lastEvaluatedUserEntryId": "fd42f7d8",
+            "stageStartEntryId": "545f29e9"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/initial/sessions/2026-10-16T10-57-36-373Z_01a1445c-3675-77c3-9969-b54611369e96.jsonl",
+            "sessionId": "01a1445c-3675-77c3-9969-b54611369e96",
+            "userMessages": 3,
+            "assistantMessages": 7,
+            "toolCalls": 2,
+            "toolResults": 2,
+            "totalMessages": 13,
+            "tokens": {
+              "input": 13511,
+              "output": 835,
+              "cacheRead": 33920,
+              "cacheWrite": 0,
+              "total": 48266
+            },
+            "cost": 0.020803879999999997,
+            "contextUsage": {
+              "tokens": 5446,
+              "contextWindow": 353000,
+              "percent": 1.5427762039660056
+            }
+          }
+        },
+        {
+          "label": "fork",
+          "sessionFile": "<temporary-run>/fork-storage/2026-10-16T10-58-11-175Z_01a1445c-be67-77c3-9969-b54c056c2cac.jsonl",
+          "routes": [
+            {
+              "reason": "continuation",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "fa4ec313-4781-4bb5-b3e0-c46d585103cd",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 409,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 442
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [],
+          "dispatches": [
+            {
+              "model": "gpt-6-luna",
+              "stateBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "implementation",
+                "model": "gpt-6-luna",
+                "slot": "implementation",
+                "handoff": "locked",
+                "stageSeq": 2,
+                "lastEvaluatedUserEntryId": "a1724633",
+                "stageStartEntryId": "5db3914c"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "assistant-end",
+              "model": "gpt-6-luna",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "implementation",
+            "model": "gpt-6-luna",
+            "slot": "implementation",
+            "handoff": "locked",
+            "stageSeq": 2,
+            "lastEvaluatedUserEntryId": "a1724633",
+            "stageStartEntryId": "5db3914c"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/fork-storage/2026-10-16T10-58-11-175Z_01a1445c-be67-77c3-9969-b54c056c2cac.jsonl",
+            "sessionId": "01a1445c-be67-77c3-9969-b54c056c2cac",
+            "userMessages": 1,
+            "assistantMessages": 3,
+            "toolCalls": 1,
+            "toolResults": 1,
+            "totalMessages": 6,
+            "tokens": {
+              "input": 15622,
+              "output": 57,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 15679
+            },
+            "cost": 0.0116208,
+            "contextUsage": {
+              "tokens": 5304,
+              "contextWindow": 272000,
+              "percent": 1.95
+            }
+          }
+        }
+      ],
+      "accounting": {
+        "assistantTokens": {
+          "input": 10323,
+          "output": 52,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "sessionTokens": {
+          "input": 10323,
+          "output": 52,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 10375
+        },
+        "externalClassifierUsage": {
+          "input": 409,
+          "output": 33,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 442,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "delta": {
+          "input": 0,
+          "output": 0
+        },
+        "directClassifierIncluded": false,
+        "note": "Session totals equal assistant totals; direct classifier is excluded.",
+        "persistedClassifierUsage": {
+          "scope": "branch",
+          "calls": 1,
+          "pendingCalls": 0,
+          "missingUsageCalls": 0,
+          "tokens": {
+            "input": 409,
+            "output": 33,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 442
+          },
+          "knownCost": 0,
+          "unknownCostCalls": 1,
+          "cost": "unknown"
+        }
+      },
+      "commandQueries": [
+        {
+          "label": "initial",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        },
+        {
+          "label": "after-compact",
+          "summary": {
+            "scope": "branch",
+            "calls": 2,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 876,
+              "output": 66,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 942
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 2,
+            "cost": "unknown"
+          }
+        },
+        {
+          "label": "fork",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        },
+        {
+          "label": "fork",
+          "summary": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 409,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 442
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T10:58:14.552Z",
+      "httpCount": 12,
+      "chatDispatchCount": 10,
+      "diskAudit": {
+        "assistantUsage": {
+          "input": 12129,
+          "output": 451,
+          "cacheRead": 25472,
+          "cacheWrite": 0
+        },
+        "compactionUsage": {
+          "input": 1382,
+          "output": 384,
+          "cacheRead": 8448,
+          "cacheWrite": 0
+        },
+        "sessionTokens": {
+          "input": 13511,
+          "output": 835,
+          "cacheRead": 33920,
+          "cacheWrite": 0,
+          "total": 48266
+        },
+        "persistedClassifierUsage": {
+          "scope": "branch",
+          "calls": 2,
+          "pendingCalls": 0,
+          "missingUsageCalls": 0,
+          "tokens": {
+            "input": 876,
+            "output": 66,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 942
+          },
+          "knownCost": 0,
+          "unknownCostCalls": 2,
+          "cost": "unknown"
+        },
+        "compactions": [
+          {
+            "id": "5244dd37",
+            "firstKeptEntryId": "7864f3cc",
+            "tokensBefore": 5668,
+            "usage": {
+              "input": 1382,
+              "output": 384,
+              "cacheRead": 8448,
+              "cacheWrite": 0,
+              "reasoning": 0,
+              "totalTokens": 10214,
+              "cost": {
+                "input": 0.0001382,
+                "output": 0.000192,
+                "cacheRead": 0.00008448,
+                "cacheWrite": 0,
+                "total": 0.00041467999999999995
+              }
+            }
+          }
+        ]
+      }
+    },
+    "cancel": {
+      "scriptSha256": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+      "config": {
+        "classifierBudgetMs": 3000,
+        "history": "last-user-only",
+        "thinking": "low"
+      },
+      "scenario": "cancel",
+      "startedAt": "2026-10-16T10:57:36.326Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "abort after real classifier HTTP start settles with zero chat requests and zero router state"
+      ],
+      "runs": [
+        {
+          "label": "cancel",
+          "sessionFile": "<temporary-run>/cancel/sessions/2026-10-16T10-57-36-343Z_01a1445c-3657-74d1-b314-f08e7e6ecbec.jsonl",
+          "routes": [],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 1,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 0
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 1,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 0
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "092af8c2-64fc-4239-9617-e2b361b0c312",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "092af8c2-64fc-4239-9617-e2b361b0c312",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "aborted"
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "aborted",
+              "durationMs": 34
+            }
+          ],
+          "dispatches": [],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "caller-abort"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "aborted"
+            },
+            {
+              "type": "assistant-end",
+              "model": "auto",
+              "stopReason": "aborted"
+            }
+          ],
+          "finalState": null,
+          "stats": {
+            "sessionFile": "<temporary-run>/cancel/sessions/2026-10-16T10-57-36-343Z_01a1445c-3657-74d1-b314-f08e7e6ecbec.jsonl",
+            "sessionId": "01a1445c-3657-74d1-b314-f08e7e6ecbec",
+            "userMessages": 1,
+            "assistantMessages": 1,
+            "toolCalls": 0,
+            "toolResults": 0,
+            "totalMessages": 3,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            },
+            "cost": 0,
+            "contextUsage": {
+              "tokens": 1165,
+              "contextWindow": 272000,
+              "percent": 0.42830882352941174
+            }
+          }
+        }
+      ],
+      "commandQueries": [
+        {
+          "label": "cancel",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 1,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 0
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T10:57:36.411Z",
+      "httpCount": 1,
+      "chatDispatchCount": 0
+    },
+    "retry": {
+      "scriptSha256": "b75016d2742fd9fef126c28e29194cc1fe31e32fbc8251004f060a37ada9ef6b",
+      "config": {
+        "classifierBudgetMs": 3000,
+        "history": "last-user-only",
+        "thinking": "low"
+      },
+      "scenario": "retry",
+      "startedAt": "2026-10-16T10:57:36.350Z",
+      "node": "v24.15.0",
+      "hostVersion": "1.2.0",
+      "provider": "codex-sub2api",
+      "models": {
+        "standard": "gpt-6.1-sol",
+        "complex": "gpt-6.1-sol",
+        "implementation": "gpt-6-luna",
+        "direct": "gpt-6-luna"
+      },
+      "checks": [
+        "injected 503 reaches host auto-retry; real LLM recovery keeps failed model/thinking and does not add stage"
+      ],
+      "runs": [
+        {
+          "label": "retry",
+          "sessionFile": "<temporary-run>/retry/sessions/2026-10-16T10-57-36-366Z_01a1445c-366e-706d-bf3b-758f7db7b3ef.jsonl",
+          "routes": [
+            {
+              "reason": "user",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              }
+            },
+            {
+              "reason": "retry",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "failedModel": "gpt-6.1-sol",
+              "failedThinkingLevel": "low",
+              "state": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "locked",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              }
+            }
+          ],
+          "classifierUsage": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 372,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 405
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "sessionClassifierUsage": {
+            "scope": "session",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 372,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 405
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          },
+          "classificationRecords": [
+            {
+              "schemaVersion": 1,
+              "callId": "45dfdff5-1937-48e5-89c6-8817cf980f29",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "pending"
+            },
+            {
+              "schemaVersion": 1,
+              "callId": "45dfdff5-1937-48e5-89c6-8817cf980f29",
+              "virtual": {
+                "provider": "jev",
+                "id": "auto"
+              },
+              "provider": "typesafe",
+              "model": "jev-latest",
+              "status": "stop",
+              "usage": {
+                "tokens": {
+                  "input": 372,
+                  "output": 33,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 405
+                },
+                "cost": "unknown"
+              }
+            }
+          ],
+          "classifiers": [
+            {
+              "stopReason": "stop",
+              "probability": 0.01,
+              "durationMs": 707,
+              "usage": {
+                "input": 372,
+                "output": 33,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "totalTokens": 405,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              }
+            }
+          ],
+          "dispatches": [
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "first-write",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              }
+            },
+            {
+              "model": "gpt-6.1-sol",
+              "stateBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "locked",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              },
+              "stateOnDiskBeforeDispatch": {
+                "phase": "planning",
+                "model": "gpt-6.1-sol",
+                "slot": "standard",
+                "handoff": "locked",
+                "stageSeq": 1,
+                "lastEvaluatedUserEntryId": "c7927ecd",
+                "stageStartEntryId": "c7927ecd"
+              }
+            }
+          ],
+          "events": [
+            {
+              "type": "classifier-http-start"
+            },
+            {
+              "type": "classifier-end",
+              "stopReason": "stop"
+            },
+            {
+              "type": "injected-http-503"
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "error"
+            },
+            {
+              "type": "auto_retry_start",
+              "attempt": 1
+            },
+            {
+              "type": "assistant-end",
+              "model": "gpt-6.1-sol",
+              "thinkingLevel": "low",
+              "stopReason": "stop"
+            }
+          ],
+          "finalState": {
+            "phase": "planning",
+            "model": "gpt-6.1-sol",
+            "slot": "standard",
+            "handoff": "locked",
+            "stageSeq": 1,
+            "lastEvaluatedUserEntryId": "c7927ecd",
+            "stageStartEntryId": "c7927ecd"
+          },
+          "stats": {
+            "sessionFile": "<temporary-run>/retry/sessions/2026-10-16T10-57-36-366Z_01a1445c-366e-706d-bf3b-758f7db7b3ef.jsonl",
+            "sessionId": "01a1445c-366e-706d-bf3b-758f7db7b3ef",
+            "userMessages": 1,
+            "assistantMessages": 2,
+            "toolCalls": 0,
+            "toolResults": 0,
+            "totalMessages": 4,
+            "tokens": {
+              "input": 5006,
+              "output": 5,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 5011
+            },
+            "cost": 0.010062,
+            "contextUsage": {
+              "tokens": 5011,
+              "contextWindow": 353000,
+              "percent": 1.4195467422096317
+            }
+          }
+        }
+      ],
+      "commandQueries": [
+        {
+          "label": "retry",
+          "summary": {
+            "scope": "branch",
+            "calls": 1,
+            "pendingCalls": 0,
+            "missingUsageCalls": 0,
+            "tokens": {
+              "input": 372,
+              "output": 33,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 405
+            },
+            "knownCost": 0,
+            "unknownCostCalls": 1,
+            "cost": "unknown"
+          }
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-16T10:57:39.351Z",
+      "httpCount": 3,
+      "chatDispatchCount": 2
+    }
+  }
+}
