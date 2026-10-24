@@ -38,7 +38,7 @@ An eligible previous planning model is reused before classification.
 pi install npm:@caph42/pi-jev-router
 
 # or pin a release
-pi install npm:@caph42/pi-jev-router@1.0.0
+pi install npm:@caph42/pi-jev-router@1.0.1
 
 # or load a checkout in place, without installing
 pi -e ./extensions/jev-router.ts --model jev/auto
@@ -298,7 +298,7 @@ MIT. See [`LICENSE`](LICENSE).
 pi install npm:@caph42/pi-jev-router
 
 # 或固定到某个版本
-pi install npm:@caph42/pi-jev-router@1.0.0
+pi install npm:@caph42/pi-jev-router@1.0.1
 
 # 或直接加载本地 checkout，不安装
 pi -e ./extensions/jev-router.ts --model jev/auto
