@@ -40,7 +40,9 @@ npm publish --access public # no browser prompt once the token above is in place
 ```
 
 Before bumping, check that the docs kept up with the code: new or renamed config keys belong in the
-README table *and* in `jev-router.example.json`.
+README table. A key with a built-in default also belongs in `jev-router.example.json`, which must stay
+equal to the built-in defaults; optional keys without a default, such as `classifier.temperature` and
+`classifier.timeoutMs`, are documented in the README only.
 
 ## Verify the release
 

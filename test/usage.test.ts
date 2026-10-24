@@ -147,3 +147,30 @@ describe("persistent classifier usage", () => {
 		h.user(); await h.dispatch(); assert.equal(h.summary().cost, 0.04); assert.equal(h.summary().knownCost, 0.04);
 	});
 });
+
+describe("classifier adapter metadata", () => {
+	const records = (h: any) => h.entries.filter((entry: any) => entry.customType === "pi-jev-router.classifier-usage").map((entry: any) => entry.data);
+	it("records the adapter per call and summarizes distinct adapters", async () => {
+		const h = setup("adaptive", { classifier: { provider: "llama.cpp", id: "local" } });
+		h.ctx.modelRegistry.findOfType = () => ({ provider: "llama.cpp", id: "local", api: "llama-cpp-classify", cost: { input: 0 } });
+		h.user(); await h.dispatch();
+		assert.deepEqual(records(h).map((record: any) => [record.status, record.api]),
+			[["pending", "llama-cpp-classify"], ["stop", "llama-cpp-classify"]]);
+		assert.deepEqual(h.summary().apis, ["llama-cpp-classify"]);
+	});
+	it("prefers the adapter the result reports and does not double-count the pending one", async () => {
+		const h = setup(); h.user();
+		h.ctx.modelRegistry.findOfType = () => ({ provider: "typesafe", id: "jev-latest", api: "typesafe-system-one", cost: { input: 1 } });
+		h.result = { ...answer, api: "openai-decisions" };
+		await h.dispatch();
+		assert.deepEqual(records(h).map((record: any) => record.api), ["typesafe-system-one", "openai-decisions"]);
+		assert.deepEqual(h.summary().apis, ["openai-decisions"]);
+	});
+	it("tolerates records written before the adapter field existed", async () => {
+		const h = setup();
+		h.append("pi-jev-router.classifier-usage", { schemaVersion: 1, callId: "old", virtual: { provider: "jev", id: "auto" },
+			provider: "typesafe", model: "jev-latest", status: "stop", usage: { tokens: { input: 1 }, cost: "unknown" } });
+		const summary = h.summary();
+		assert.equal(summary.calls, 1); assert.equal(summary.tokens.input, 1); assert.deepEqual(summary.apis, []);
+	});
+});

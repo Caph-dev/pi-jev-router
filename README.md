@@ -56,7 +56,7 @@ Upgrade with `pi update --extensions`. Do not load a local checkout and the inst
 
 - Pi with virtual models, persistent branch IDs and `buildSessionProjection()`. Verified against Pi 1.3.0.
 - The complex and standard models, plus any configured `models.direct`, must resolve through `pi --list-models`. The defaults are `openai-codex` models: `gpt-6-astra`, `gpt-6.1-sol` and `gpt-6-luna`.
-- Optional TypeSafe credentials for the Jev classifier (`typesafe/jev-latest`). Set `classifier` to `null` or `false` to disable classification.
+- Optional classifier credentials. The default is TypeSafe's `typesafe/jev-latest`; any model of pi's `classifier` type works, including Cloudflare's Clef, a `llama.cpp` router and OpenAI's Decisions API (see [Classifier endpoints](#classifier-endpoints)). Set `classifier` to `null` or `false` to disable classification.
 - A Node version supported by the installed Pi. This release's native TypeScript tests ran on Node 24.15.0.
 
 Without projection support, `fixed` and `shadow` send no classifier input and cannot recognize writes; initialization can still select the standard slot or reuse a previous planning model. `adaptive` requires the projection APIs.
@@ -72,7 +72,7 @@ The default `fixed` strategy works with an OpenAI Codex login. To try adaptive r
 }
 ```
 
-The Codex login covers the default physical models; the Jev classifier needs TypeSafe credentials. Without them, adaptive has no classification evidence: it reuses an available planning model or starts on `standard`, and cannot authorize guarded handoff or classifier-driven upgrades.
+The Codex login covers the default physical models; the default classifier needs TypeSafe credentials. Without a usable classifier, adaptive has no classification evidence: it reuses an available planning model or starts on `standard`, and cannot authorize guarded handoff or classifier-driven upgrades.
 
 Everything else stays at the defaults below. Restart Pi after changing configuration.
 
@@ -112,9 +112,24 @@ Nested objects merge; arrays replace. Missing files are allowed; malformed files
 | `models.direct` | `null` | Direct requests; follows `implementation`, then `standard` |
 | `classifier.provider` | `typesafe` | Classifier provider; set `classifier` to `null` or `false` to disable classification |
 | `classifier.id` | `jev-latest` | Classifier model id |
+| `classifier.temperature` | unset | Divides label logits before normalizing, greater than 0 and at most 100; read only by adapters that rank label probabilities, ignored by the rest |
+| `classifier.timeoutMs` | unset | Local deadline for one classifier call, an integer from 1 to 60000; overrides `adaptive.decisionTimeoutMs` when set |
 | `threshold` | `0.5` | Probability at or above this value selects complex |
 | `promptLimit` | `16000` | Current text budget in UTF-16 code units |
 | `adaptive.decisionTimeoutMs` | `3000` | Local total classifier deadline, an integer from 1 to 60000; applies to **all** strategies |
+
+### Classifier endpoints
+
+`classifier.provider` and `classifier.id` name any model of pi's `classifier` type; the router does not parse endpoint formats itself, so the catalog decides which adapter a model uses. The four adapters and their requirements:
+
+| API | Example model | Credentials | Notes |
+| --- | --- | --- | --- |
+| `typesafe-system-one` | `typesafe/jev-latest` | `TYPESAFE_API_KEY` | Default. The direct model has no catalog price, so `/jev-usage` keeps reporting its cost as unknown. |
+| `cloudflare-workers-ai-system-one` | `cloudflare-workers-ai/@cf/cloudflare/clef` | `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` | Also serves Jev models on Workers AI. |
+| `llama-cpp-classify` | a chat model of a `llama.cpp` router | Pi's `/login llama.cpp` connection, with an optional server API key | Requires llama.cpp's native `/tokenize`, `/apply-template` and `/completion` endpoints. Renders the state twice; allow time for tokenization, templating and probability readout with `classifier.timeoutMs`. Raw label probabilities are often overconfident; `classifier.temperature` above 1 softens them. |
+| `openai-decisions` | `openai/gpt-6-luna` | `OPENAI_API_KEY` | A ChatGPT login through `/login` does not supply this key; log out of `openai` to use the key. |
+
+Models on `openrouter`, `vercel-ai-gateway` and `opencode` proxy the System One format and use their own provider's credentials. A classifier that is missing from the catalog yields `missing-classifier`, and any adapter error yields `error`. When no previous planning model can be reused, initialization falls back to `standard`; later failures keep the current model. Neither failure authorizes a guarded handoff. Switching classifier, model or `classifier.temperature` changes probability calibration, so re-check `threshold` rather than assuming the previous value transfers.
 
 ### Adaptive routing
 
@@ -141,7 +156,7 @@ Nested objects merge; arrays replace. Missing files are allowed; malformed files
 | `diagnostics.record` | `false` | Persist sanitized decision and main-request outcome entries |
 | `debug` | `false` | Structured routing metadata on stderr; also `JEV_ROUTER_DEBUG=1` |
 
-The global classifier deadline keeps its original `adaptive.decisionTimeoutMs` name for compatibility. No optimal latency or cost claim is attached to the 3000 ms default. The handoff guard fields affect adaptive only. `fixed` and `shadow` use `edit`/`write`, including successful nested records. An empty `adaptive.handoffTools` disables adaptive handoff. `bash`/`codemode` cannot be whitelisted, and wrapper success is not write evidence; custom tool names must represent a write when successful. New `strategy`, `adaptive` and `diagnostics` fields reject explicit `null` and invalid values; the existing `null`/`false` conventions for model slots and `classifier` remain intact.
+The global classifier deadline keeps its original `adaptive.decisionTimeoutMs` name for compatibility. No optimal latency or cost claim is attached to the 3000 ms default. The handoff guard fields affect adaptive only. `fixed` and `shadow` use `edit`/`write`, including successful nested records. An empty `adaptive.handoffTools` disables adaptive handoff. `bash`/`codemode` cannot be whitelisted, and wrapper success is not write evidence; custom tool names must represent a write when successful. New `strategy`, `adaptive` and `diagnostics` fields reject explicit `null` and invalid values, as do `classifier.temperature` and `classifier.timeoutMs`; omitting a classifier option keeps the inherited value. The existing `null`/`false` conventions for model slots and `classifier` remain intact.
 
 ## How routing works
 
@@ -177,7 +192,7 @@ A successful entry in `nestedCalls` with status `ok` counts even if the outer to
 
 Retries never classify or hand off. They prefer an available failed model on the configured provider and in the configured slots or current state, preserving its thinking level. Otherwise they use valid state, an available previous planning model or `standard`. Retry locks any remaining handoff eligibility; repeated retries do not append identical state. Pi persists returned state before main dispatch, so a later model failure does not undo it.
 
-All strategies use a bounded classifier call with zero SDK retries. `adaptive.decisionTimeoutMs` is the total local deadline and applies to every strategy; a deadline win ignores late success or failure. Caller cancellation or a service abort terminates routing without returning candidate state. Direct requests bypass classification and state, but still respect cancellation.
+All strategies use a bounded classifier call with zero SDK retries. `adaptive.decisionTimeoutMs` is the total local deadline and applies to every strategy; `classifier.timeoutMs`, when set, replaces it for classifier calls only. A deadline win ignores late success or failure. Caller cancellation or a service abort terminates routing without returning candidate state. Direct requests bypass classification and state, but still respect cancellation.
 
 ### State and migration
 
@@ -189,7 +204,7 @@ Adaptive state uses `schemaVersion: 1` and `policyVersion: "adaptive-v2"`. Legac
 
 ## Diagnostics and usage
 
-With `diagnostics.record: true`, `pi-jev-router.decision` entries include routing reasons, physical source and target models, requested thinking level, classifier status, probability, duration, safe usage and context estimate. A random `decisionId` links a finalized main assistant response to its `pi-jev-router.outcome` entry, including actual thinking level, stop reason, failure category, reported usage and elapsed time after routing. Missing outcomes remain missing; this is not an HTTP log or a first-token latency measurement. Direct calls do not create decision or outcome records. Session and branch ancestry is checked before recording outcomes, and pending associations are cleared at session and agent boundaries. Classifier results arriving after a deadline or after an invalidated session, branch or input are not applied.
+With `diagnostics.record: true`, `pi-jev-router.decision` entries include routing reasons, physical source and target models, requested thinking level, `classifierStatus`, the classifier adapter (`classifierApi`), probability, duration, safe usage and context estimate. A random `decisionId` links a finalized main assistant response to its `pi-jev-router.outcome` entry, including actual thinking level, stop reason, failure category, reported usage and elapsed time after routing. Missing outcomes remain missing; this is not an HTTP log or a first-token latency measurement. Direct calls do not create decision or outcome records. Session and branch ancestry is checked before recording outcomes, and pending associations are cleared at session and agent boundaries. Classifier results arriving after a deadline or after an invalidated session, branch or input are not applied.
 
 Diagnostics and classification records exclude prompts, code, tool arguments, response bodies, credentials and raw errors. Persistence errors emit only `diagnostics-unavailable` and never alter routing; a failed write can leave usage incomplete or pending. Diagnostics are excluded from model context and are not an additional billable usage source. Do not add outcome usage to Pi's own session totals.
 
@@ -201,7 +216,7 @@ Diagnostics and classification records exclude prompts, code, tool arguments, re
 | `/jev-usage --session` | All entries in the current session file, including abandoned branches |
 | `/jev-usage --json` | Structured output |
 
-Queries call no model and do not change state. The public `summarizeClassifierUsage(manager, virtual?, scope?)` export provides the same data.
+Queries call no model and do not change state. The public `summarizeClassifierUsage(manager, virtual?, scope?)` export provides the same data; its `apis` field lists the distinct classifier adapters among the recorded attempts.
 
 Each actual classification attempt has a random call ID, a pending snapshot and a terminal snapshot. Snapshots count once; real reattempts after cancellation count separately. Only attempts recorded by this version are counted. Reported tokens are not a verified bill. Missing usage, pending calls and unknown or zero catalog pricing stay explicit; `knownCost` is a subtotal when any cost is unknown. Timeout or cancelled requests may still incur unreported service usage.
 
@@ -229,7 +244,7 @@ Compaction and context edits are authoritative; deleted, replaced or cropped bod
 
 - **`jev/auto` is not listed:** make sure the package is installed, restart Pi, and remove any second copy loaded from a checkout.
 - **A configured model is not in the catalog:** run `pi --list-models`, then fix `provider` or `models` in the configuration.
-- **Classification fails or times out:** initial classification falls back to `standard`; later failures keep the current model. Set `classifier` to `null` to disable classification entirely.
+- **Classification fails or times out:** when no previous planning model can be reused, initial classification falls back to `standard`; later failures keep the current model. Set `classifier` to `null` to disable classification entirely. `missing-classifier` means the catalog holds no `classifier` model under that provider and id; `error` means the adapter request failed, which can be missing credentials, an unreachable endpoint, or a server-side fault. For `llama.cpp`, raise `classifier.timeoutMs` before assuming the router is broken.
 - **Configuration changes do not apply:** restart Pi. Check the discovery order above and watch for unknown-key warnings.
 - **Writes are not recognized:** hosts without nested write records can recognize only successful outer writes.
 
@@ -243,7 +258,7 @@ npm test
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-Without `PI_ROUTER_HOST_MODULE`, the host cases explicitly skip. [`plans/003-final-router.md`](plans/003-final-router.md) records 232 passing tests in 27 suites, including real `SessionManager` cases, and a strict `tsc --noEmit` check against the installed Pi and pi-ai declarations. Tests use deterministic classifier and catalog fixtures; they establish routing and lifecycle behavior, not classification accuracy, production latency, model-task quality or savings.
+Without `PI_ROUTER_HOST_MODULE`, the host cases explicitly skip. [`plans/003-final-router.md`](plans/003-final-router.md) records 232 passing tests in 27 suites, including real `SessionManager` cases, and a strict `tsc --noEmit` check against the installed Pi and pi-ai declarations. Tests use deterministic classifier and catalog fixtures; they establish routing and lifecycle behavior, not classification accuracy, production latency, model-task quality or savings. Adapter cases use normalized results through registry mocks; live authentication and wire-protocol interoperability have not been verified.
 
 `scripts/live-agent-smoke.ts` remains an explicitly billable, opt-in runner using the configured `codex-sub2api` sol/luna models and `typesafe/jev-latest`. It runs outside `npm test` in isolated temporary resources. Its core scenario requires the real classifier to satisfy the guarded handoff threshold; an untriggered path cannot count as validated. This release has not rerun the live scenarios. After reviewing the script and authorizing the calls:
 
@@ -316,7 +331,7 @@ pi --model jev/auto
 
 - pi 需要支持虚拟模型、持久分支 ID 和 `buildSessionProjection()`。本版本在 Pi 1.3.0 上验证。
 - complex、standard 以及显式配置的 `models.direct` 必须能在 `pi --list-models` 中解析。默认值都是 `openai-codex` 模型：`gpt-6-astra`、`gpt-6.1-sol` 和 `gpt-6-luna`。
-- Jev 分类器 `typesafe/jev-latest` 需要可选的 TypeSafe 凭据。把 `classifier` 设为 `null` 或 `false` 可以关闭分类。
+- 分类器凭据可选。默认为 TypeSafe 的 `typesafe/jev-latest`；pi 的 `classifier` 类型模型都可以使用，包括 Cloudflare 的 Clef、`llama.cpp` router 和 OpenAI 的 Decisions API（见[分类器端点](#分类器端点)）。把 `classifier` 设为 `null` 或 `false` 可以关闭分类。
 - Node 版本需与已安装的 Pi 兼容。本版本的 TypeScript 测试运行在 Node 24.15.0。
 
 宿主不支持投影时，`fixed` 和 `shadow` 不会发送分类输入，也无法识别写入；初始化仍可选择 standard 或复用之前的规划模型。`adaptive` 依赖投影 API。
@@ -332,7 +347,7 @@ pi --model jev/auto
 }
 ```
 
-Codex 登录覆盖默认物理模型；Jev 分类器需要 TypeSafe 凭据。没有凭据时，adaptive 没有分类证据：它会复用可用的规划模型，或以 `standard` 起步，无法授权守卫式交接或分类器驱动的升级。
+Codex 登录覆盖默认物理模型；默认分类器需要 TypeSafe 凭据。没有可用分类器时，adaptive 没有分类证据：它会复用可用的规划模型，或以 `standard` 起步，无法授权守卫式交接或分类器驱动的升级。
 
 其他字段保持下面的默认值。修改配置后需要重启 Pi。
 
@@ -372,9 +387,24 @@ Codex 登录覆盖默认物理模型；Jev 分类器需要 TypeSafe 凭据。没
 | `models.direct` | `null` | 直接请求；依次跟随 `implementation`、`standard` |
 | `classifier.provider` | `typesafe` | 分类器 provider；把 `classifier` 设为 `null` 或 `false` 可关闭分类 |
 | `classifier.id` | `jev-latest` | 分类器模型 id |
+| `classifier.temperature` | 未设置 | 归一化前对 label logits 做除法，取值大于 0、不超过 100；只有按 label 概率出答案的适配器读取它，其他适配器忽略 |
+| `classifier.timeoutMs` | 未设置 | 单次分类器调用的本地期限，1–60000 的整数；设置后覆盖 `adaptive.decisionTimeoutMs` |
 | `threshold` | `0.5` | 概率大于等于该值时选中 complex |
 | `promptLimit` | `16000` | 当前文本预算，单位为 UTF-16 code unit |
 | `adaptive.decisionTimeoutMs` | `3000` | 分类器本地总期限，1–60000 的整数；适用于**所有**策略 |
+
+### 分类器端点
+
+`classifier.provider` 与 `classifier.id` 指向 pi `classifier` 类型中的任意模型；路由本身不解析端点格式，由目录决定某个模型走哪个适配器。四种适配器及各自要求：
+
+| API | 示例模型 | 凭据 | 说明 |
+| --- | --- | --- | --- |
+| `typesafe-system-one` | `typesafe/jev-latest` | `TYPESAFE_API_KEY` | 默认值。直连模型没有目录价格，`/jev-usage` 的成本始终显示为 unknown。 |
+| `cloudflare-workers-ai-system-one` | `cloudflare-workers-ai/@cf/cloudflare/clef` | `CLOUDFLARE_API_KEY` 与 `CLOUDFLARE_ACCOUNT_ID` | Workers AI 上的 Jev 也走它。 |
+| `llama-cpp-classify` | `llama.cpp` router 中的任意 chat 模型 | Pi 的 `/login llama.cpp` 连接，可选填服务端 API key | 依赖 llama.cpp 原生的 `/tokenize`、`/apply-template` 和 `/completion` 端点。state 渲染两次，可通过 `classifier.timeoutMs` 为分词、模板渲染和概率读取留出时间。原始 label 概率通常过度自信，`classifier.temperature` 大于 1 可使其变软。 |
+| `openai-decisions` | `openai/gpt-6-luna` | `OPENAI_API_KEY` | 通过 `/login` 的 ChatGPT 账号不提供该 key；要用 key 就先退出 `openai` 登录。 |
+
+`openrouter`、`vercel-ai-gateway` 与 `opencode` 上的分类器代理 System One 格式，使用各自 provider 的凭据。目录中缺失的分类器返回 `missing-classifier`，适配器报错返回 `error`。初始化没有可复用的规划模型时回退到 `standard`；后续失败保留当前模型。两类失败都不会授权守卫式交接。更换分类器、模型或 `classifier.temperature` 会改变概率校准，应重新核对 `threshold`，不要假设旧值仍然适用。
 
 ### Adaptive 路由
 
@@ -401,7 +431,7 @@ Codex 登录覆盖默认物理模型；Jev 分类器需要 TypeSafe 凭据。没
 | `diagnostics.record` | `false` | 持久化脱敏的决策与主请求结果记录 |
 | `debug` | `false` | 在 stderr 输出结构化路由信息；也支持 `JEV_ROUTER_DEBUG=1` |
 
-全局分类期限沿用原来的 `adaptive.decisionTimeoutMs` 字段名以保持兼容。3000 ms 默认值不代表最优延迟或成本结论。守卫字段只影响 adaptive。`fixed` 和 `shadow` 使用 `edit`/`write`，包括成功的嵌套记录。`adaptive.handoffTools` 为空会关闭 adaptive 交接。`bash`/`codemode` 不能被加入白名单，包装工具成功也不算写入证据；自定义工具名必须在成功时代表写入。新增的 `strategy`、`adaptive` 和 `diagnostics` 字段拒绝显式 `null` 和非法值；模型槽位和 `classifier` 原有的 `null`/`false` 约定保持不变。
+全局分类期限沿用原来的 `adaptive.decisionTimeoutMs` 字段名以保持兼容。3000 ms 默认值不代表最优延迟或成本结论。守卫字段只影响 adaptive。`fixed` 和 `shadow` 使用 `edit`/`write`，包括成功的嵌套记录。`adaptive.handoffTools` 为空会关闭 adaptive 交接。`bash`/`codemode` 不能被加入白名单，包装工具成功也不算写入证据；自定义工具名必须在成功时代表写入。新增的 `strategy`、`adaptive` 和 `diagnostics` 字段拒绝显式 `null` 和非法值，`classifier.temperature`、`classifier.timeoutMs` 亦然；省略某项分类器选项时沿用继承值。模型槽位和 `classifier` 原有的 `null`/`false` 约定保持不变。
 
 ## 路由流程
 
@@ -437,7 +467,7 @@ Codex 登录覆盖默认物理模型；Jev 分类器需要 TypeSafe 凭据。没
 
 重试不会分类，也不会交接。它会优先使用配置 provider 上、配置槽位或当前状态中可用的失败模型，并保留其思考强度。否则使用有效状态、可用的上一规划模型或 `standard`。重试会锁定剩余的交接机会；重复重试不会追加相同状态。Pi 在主请求派发前持久化返回的状态，因此后续模型失败不会撤销它。
 
-所有策略都使用有界分类调用和零 SDK 重试。`adaptive.decisionTimeoutMs` 是本地总期限，适用于所有策略；期限先到时，晚到的成功或失败都会被忽略。调用方取消或服务中止会终止路由，不返回候选状态。直接请求绕过分类和状态，但仍响应取消。
+所有策略都使用有界分类调用和零 SDK 重试。`adaptive.decisionTimeoutMs` 是本地总期限，适用于所有策略；设置 `classifier.timeoutMs` 后，只对分类器调用替换它。期限先到时，晚到的成功或失败都会被忽略。调用方取消或服务中止会终止路由，不返回候选状态。直接请求绕过分类和状态，但仍响应取消。
 
 ### 状态与迁移
 
@@ -449,7 +479,7 @@ Adaptive 状态使用 `schemaVersion: 1` 和 `policyVersion: "adaptive-v2"`。�
 
 ## 诊断与用量
 
-设置 `diagnostics.record: true` 后，`pi-jev-router.decision` 条目会包含路由原因、物理源模型与目标模型、请求的思考强度、分类器状态、概率、耗时、脱敏 usage 和上下文估算。随机 `decisionId` 会把最终的主助手响应关联到 `pi-jev-router.outcome` 条目，其中包含实际思考强度、停止原因、失败类别、上报的 usage 和路由后的耗时。缺失的 outcome 会保持缺失；这不是 HTTP 日志，也不是首 token 延迟测量。直接调用不会创建 decision/outcome 记录。记录 outcome 前会核对会话和分支祖先，待关联记录会在会话和 agent 边界清理。超过期限或会话、分支、输入已失效后到达的分类结果不会被应用。
+设置 `diagnostics.record: true` 后，`pi-jev-router.decision` 条目会包含路由原因、物理源模型与目标模型、请求的思考强度、`classifierStatus`、分类器适配器（`classifierApi`）、概率、耗时、脱敏 usage 和上下文估算。随机 `decisionId` 会把最终的主助手响应关联到 `pi-jev-router.outcome` 条目，其中包含实际思考强度、停止原因、失败类别、上报的 usage 和路由后的耗时。缺失的 outcome 会保持缺失；这不是 HTTP 日志，也不是首 token 延迟测量。直接调用不会创建 decision/outcome 记录。记录 outcome 前会核对会话和分支祖先，待关联记录会在会话和 agent 边界清理。超过期限或会话、分支、输入已失效后到达的分类结果不会被应用。
 
 诊断和分类记录不包含提示词、代码、工具参数、响应正文、凭据和原始错误。持久化失败只会输出 `diagnostics-unavailable`，不改变路由；写入失败可能导致 usage 不完整或处于 pending。诊断不进入模型上下文，也不是额外的计费来源。不要把 outcome usage 与 Pi 自己的会话总计相加。
 
@@ -461,7 +491,7 @@ Adaptive 状态使用 `schemaVersion: 1` 和 `policyVersion: "adaptive-v2"`。�
 | `/jev-usage --session` | 当前会话文件中的所有条目，包括被放弃的分支 |
 | `/jev-usage --json` | 结构化输出 |
 
-查询不会调用模型，也不会改变状态。公开导出 `summarizeClassifierUsage(manager, virtual?, scope?)` 提供相同数据。
+查询不会调用模型，也不会改变状态。公开导出 `summarizeClassifierUsage(manager, virtual?, scope?)` 提供相同数据；其中的 `apis` 字段列出已记录尝试涉及的分类器适配器。
 
 每次实际分类尝试都有随机 call ID、pending 快照和 terminal 快照。快照只计一次；取消后的真实重试单独计入。只统计本版本记录的尝试。上报的 token 不是经过验证的账单。缺失 usage、pending 调用以及未知或为零的目录价格会明确标出；存在未知成本时，`knownCost` 只是小计。超时或取消的请求仍可能产生未上报的服务用量。
 
@@ -489,7 +519,7 @@ Adaptive 状态使用 `schemaVersion: 1` 和 `policyVersion: "adaptive-v2"`。�
 
 - **列表中没有 `jev/auto`：** 确认包已安装，重启 Pi，并移除从 checkout 加载的第二份副本。
 - **配置的模型不在目录中：** 运行 `pi --list-models`，然后在配置中修正 `provider` 或 `models`。
-- **分类失败或超时：** 初始分类会回退到 `standard`；后续失败保持当前模型。把 `classifier` 设为 `null` 可以完全关闭分类。
+- **分类失败或超时：** 初始化没有可复用的规划模型时回退到 `standard`；后续失败保持当前模型。把 `classifier` 设为 `null` 可以完全关闭分类。`missing-classifier` 表示目录中没有该 provider/id 的 `classifier` 模型；`error` 表示适配器请求失败，可能来自缺失凭据、端点不可达或服务端故障。使用 `llama.cpp` 时先调高 `classifier.timeoutMs`，再判断是路由故障。
 - **配置修改不生效：** 重启 Pi。检查上面的配置来源读取顺序，并留意未知键警告。
 - **写入没有被识别：** 没有嵌套写入记录的宿主只能识别成功的外层写入。
 
@@ -503,7 +533,7 @@ npm test
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-未设置 `PI_ROUTER_HOST_MODULE` 时，宿主用例会明确跳过。[`plans/003-final-router.md`](plans/003-final-router.md) 记录了 27 个套件、232 项测试通过（包含真实 `SessionManager` 用例），以及针对本机 Pi 和 pi-ai 声明的严格 `tsc --noEmit` 检查。测试使用确定性的分类器和目录 fixture，验证路由与生命周期行为，不证明分类准确率、生产延迟、模型任务质量或节省费用。
+未设置 `PI_ROUTER_HOST_MODULE` 时，宿主用例会明确跳过。[`plans/003-final-router.md`](plans/003-final-router.md) 记录了 27 个套件、232 项测试通过（包含真实 `SessionManager` 用例），以及针对本机 Pi 和 pi-ai 声明的严格 `tsc --noEmit` 检查。测试使用确定性的分类器和目录 fixture，验证路由与生命周期行为，不证明分类准确率、生产延迟、模型任务质量或节省费用。适配器用例通过注册表 mock 返回归一化结果；尚未验证真实认证和 HTTP 协议互通。
 
 `scripts/live-agent-smoke.ts` 仍是需要显式开启并会产生费用的 runner，使用已配置的 `codex-sub2api` sol/luna 模型和 `typesafe/jev-latest`，在隔离的临时资源中运行，不属于 `npm test`。它的 core 场景要求真实分类器满足守卫式交接阈值；未触发的路径不能算已验证。本版本没有重跑 live 场景。审阅脚本并授权调用后：
 

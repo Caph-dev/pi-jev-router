@@ -167,6 +167,23 @@ describe("merging", () => {
 		assert.deepEqual(config.classifier, { provider: "typesafe", id: "other" });
 	});
 
+	it("parses classifier adapter options", () => {
+		const { config } = load(write(tempDir(), { classifier: { provider: "llama.cpp", id: "local", temperature: 2.5, timeoutMs: 20000 } }));
+		assert.deepEqual(config.classifier, { provider: "llama.cpp", id: "local", temperature: 2.5, timeoutMs: 20000 });
+	});
+
+	it("keeps adapter options when a later file only changes the model", () => {
+		const root = tempDir();
+		const personal = join(root, "agent");
+		const project = join(root, "project");
+		write(personal, { classifier: { temperature: 1.5, timeoutMs: 9000 } });
+		write(join(project, ".pi"), { classifier: { id: "local" } });
+		delete process.env[CONFIG_ENV];
+		process.env[AGENT_ENV] = personal;
+		process.chdir(project);
+		assert.deepEqual(loadConfig().config.classifier, { provider: "typesafe", id: "local", temperature: 1.5, timeoutMs: 9000 });
+	});
+
 	it("disables classification with null and with false", () => {
 		for (const value of [null, false])
 			assert.equal(load(write(tempDir(), { classifier: value })).config.classifier, null);
@@ -265,6 +282,19 @@ describe("adaptive M1 configuration", () => {
 	});
 	for (const value of [null, 0, 60001, 1.5, "3000"]) it("rejects decisionTimeoutMs " + JSON.stringify(value), () => {
 		assertFails(/adaptive.decisionTimeoutMs/, write(tempDir(), { adaptive: { decisionTimeoutMs: value } }));
+	});
+	for (const temperature of [Number.MIN_VALUE, 0.001, 0.01, 1, 100]) it("accepts classifier.temperature " + temperature, () => {
+		const { config } = load(write(tempDir(), { classifier: { temperature } }));
+		assert.equal(config.classifier?.temperature, temperature);
+	});
+	for (const value of [null, 0, -1, 100.5, "2", true]) it("rejects classifier.temperature " + JSON.stringify(value), () => {
+		assertFails(/classifier.temperature/, write(tempDir(), { classifier: { temperature: value } }));
+	});
+	it("rejects an overflowing classifier.temperature", () => {
+		assertFails(/classifier.temperature/, write(tempDir(), '{"classifier":{"temperature":1e309}}'));
+	});
+	for (const value of [null, 0, 60001, 1.5, "3000"]) it("rejects classifier.timeoutMs " + JSON.stringify(value), () => {
+		assertFails(/classifier.timeoutMs/, write(tempDir(), { classifier: { timeoutMs: value } }));
 	});
 	it("warns and ignores unknown adaptive keys", () => {
 		const messages = captureWarnings();

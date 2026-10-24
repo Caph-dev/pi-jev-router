@@ -159,7 +159,7 @@ function harness(patch: any = {}, levels = {}) {
 	let projection: any[] | undefined;
 	let result: any = choice(0.8);
 	const calls: any[] = [];
-	ctx.modelRegistry.findOfType = () => ({ provider: "typesafe", id: "jev-latest", cost: { input: 0, output: 0 } });
+	ctx.modelRegistry.findOfType = () => ({ provider: "typesafe", id: "jev-latest", api: "typesafe-system-one", cost: { input: 0, output: 0 } });
 	ctx.modelRegistry.classify = async (...args: any[]) => {
 		calls.push(args);
 		return typeof result === "function" ? result(...args) : result;
@@ -595,6 +595,83 @@ describe("shadow observations", () => {
 	});
 });
 
+describe("classifier adapters", () => {
+	const apis = ["typesafe-system-one", "cloudflare-workers-ai-system-one", "llama-cpp-classify", "openai-decisions"];
+	const use = (h: ReturnType<typeof harness>, api: string, id = "jev-latest", provider = "typesafe") => {
+		const model = { provider, id, api, cost: { input: 0, output: 0 } };
+		h.ctx.modelRegistry.findOfType = (type: string, requestedProvider: string, requestedId: string) => {
+			assert.equal(type, "classifier");
+			assert.equal(requestedProvider, provider);
+			assert.equal(requestedId, id);
+			return model;
+		};
+	};
+	const decisions = (logs: string[]) => logs.filter(line => line.startsWith("[pi-jev-router] {"))
+		.map(line => JSON.parse(line.slice("[pi-jev-router] ".length)));
+
+	for (const api of apis) it("accepts a " + api + " answer and logs the adapter", async () => {
+		const savedError = console.error; const logs: string[] = [];
+		console.error = (...args) => logs.push(args.join(" "));
+		try {
+			const h = harness({ strategy: "adaptive", debug: true }); h.user(); use(h, api);
+			h.result = { ...choice(0.9), api };
+			assert.equal((await h.dispatch()).model.id, "strong");
+			const [record] = decisions(logs);
+			assert.equal(record.classifierStatus, "classified"); assert.equal(record.classifierApi, api);
+		} finally { console.error = savedError; }
+	});
+
+	for (const api of apis) it("falls back to standard when a " + api + " call fails", async () => {
+		const h = harness({ strategy: "adaptive" }); h.user(); use(h, api);
+		h.result = { stopReason: "error", api, errorMessage: "ADAPTER_SECRET" };
+		assert.equal((await h.dispatch()).model.id, "mid");
+	});
+
+	it("labels a skipped call without an adapter", async () => {
+		const savedError = console.error; const logs: string[] = [];
+		console.error = (...args) => logs.push(args.join(" "));
+		try {
+			const h = harness({ strategy: "adaptive", debug: true, classifier: { provider: "absent", id: "none" } }); h.user();
+			h.ctx.modelRegistry.findOfType = () => undefined;
+			assert.equal((await h.dispatch()).model.id, "mid");
+			const [record] = decisions(logs);
+			assert.equal(record.classifierStatus, "missing-classifier"); assert.equal(record.classifierApi, null);
+		} finally { console.error = savedError; }
+	});
+
+	it("lets the reported adapter supersede the catalog one on an unusable answer", async () => {
+		const savedError = console.error; const logs: string[] = [];
+		console.error = (...args) => logs.push(args.join(" "));
+		try {
+			const h = harness({ strategy: "adaptive", debug: true }); h.user(); use(h, "typesafe-system-one");
+			h.result = { stopReason: "stop", api: "openai-decisions", answers: { complexity: { type: "choice", probabilities: { complex: 2 } } } };
+			assert.equal((await h.dispatch()).model.id, "mid");
+			const [record] = decisions(logs);
+			assert.equal(record.classifierStatus, "invalid-answer"); assert.equal(record.classifierApi, "openai-decisions");
+		} finally { console.error = savedError; }
+	});
+
+	it("forwards temperature only when configured, with zero SDK retries", async () => {
+		const h = harness({ strategy: "adaptive", classifier: { provider: "llama.cpp", id: "local", temperature: 2 } }); h.user();
+		use(h, "llama-cpp-classify", "local", "llama.cpp"); await h.dispatch();
+		assert.equal(h.calls[0][2].temperature, 2); assert.equal(h.calls[0][2].maxRetries, 0);
+		assert.ok(h.calls[0][2].signal instanceof AbortSignal);
+		const plain = harness({ strategy: "adaptive" }); plain.user(); await plain.dispatch();
+		assert.equal("temperature" in plain.calls[0][2], false);
+	});
+
+	it("classifier.timeoutMs overrides the global deadline in both directions", async () => {
+		const slowBound = harness({ strategy: "adaptive", adaptive: { decisionTimeoutMs: 5 },
+			classifier: { provider: "typesafe", id: "jev-latest", timeoutMs: 250 } });
+		slowBound.user(); slowBound.result = () => new Promise(yes => setTimeout(() => yes(choice(1)), 30));
+		assert.equal((await slowBound.dispatch()).model.id, "strong");
+		const fastBound = harness({ strategy: "adaptive", adaptive: { decisionTimeoutMs: 250 },
+			classifier: { provider: "typesafe", id: "jev-latest", timeoutMs: 5 } });
+		fastBound.user(); fastBound.result = () => new Promise(yes => setTimeout(() => yes(choice(1)), 30));
+		assert.equal((await fastBound.dispatch()).model.id, "mid");
+	});
+});
+
 describe("decision records", () => {
 	it("logs numeric metadata, never prompt/tool/error sentinels; unknown price stays unknown", async () => {
 		const savedError = console.error; const logs: string[] = [];
@@ -612,7 +689,7 @@ describe("decision records", () => {
 			assert.deepEqual(records[0].usage, { tokens: { input: 12, output: 2 }, cost: "unknown" });
 			assert.equal(records[1].decisionReason, "initial-write"); assert.equal(records[1].switched, true);
 			assert.equal(records[2].decisionReason, "keep-unavailable"); assert.equal(records[2].classifierStatus, "error");
-			const allowed = new Set(["strategy", "policyVersion", "requestReason", "stageSeq", "from", "to", "decisionReason", "classifierStatus", "probability", "classifierDurationMs", "switched", "usage"]);
+			const allowed = new Set(["strategy", "policyVersion", "requestReason", "stageSeq", "from", "to", "decisionReason", "classifierStatus", "classifierApi", "probability", "classifierDurationMs", "switched", "usage"]);
 			for (const record of records) for (const key of Object.keys(record)) assert.ok(allowed.has(key), key);
 			assert.doesNotMatch(logs.join(""), /PROMPT_SECRET|TOOL_SECRET|ARGS_SECRET|ERROR_SECRET|USAGE_SECRET|NEXT_SECRET/);
 		} finally { console.error = savedError; }
