@@ -125,7 +125,7 @@ The deadline field keeps the name `adaptive.decisionTimeoutMs` so older files st
 
 | API | Example model | Credentials | Notes |
 | --- | --- | --- | --- |
-| `typesafe-system-one` | `typesafe/jev-latest` | `TYPESAFE_API_KEY` | Default. The direct model has no catalog price, so `/jev-usage` reports its cost as unknown. |
+| `typesafe-system-one` | `typesafe/jev-latest` | `TYPESAFE_API_KEY` | Default. The direct model has no catalog price, so `/jev-router usage` reports its cost as unknown. |
 | `cloudflare-workers-ai-system-one` | `cloudflare-workers-ai/@cf/cloudflare/clef` | `CLOUDFLARE_API_KEY` and `CLOUDFLARE_ACCOUNT_ID` | Also used for Jev models on Workers AI. |
 | `llama-cpp-classify` | A chat model on a `llama.cpp` router | Pi's `/login llama.cpp` connection. A server API key is optional. | Needs llama.cpp `/tokenize`, `/apply-template`, and `/completion`. |
 | `openai-decisions` | `openai/gpt-6-luna` | `OPENAI_API_KEY` | A ChatGPT login from `/login` does not provide this key. Log out of the `openai` provider before using the key. |
@@ -247,15 +247,23 @@ Decision entries and classification records omit prompts, code, tool arguments, 
 
 Diagnostics are left out of the model context. They are not a second billable usage source. Main assistant outcome usage is already in Pi's session totals.
 
-### The `/jev-usage` command
+### The `/jev-router` command
+
+Every subcommand is reachable through one namespaced command:
 
 | Command | Scope |
 | --- | --- |
-| `/jev-usage` | Current branch |
-| `/jev-usage --session` | Every entry in the current session file, including abandoned branches |
-| `/jev-usage --json` | The same summary as JSON |
+| `/jev-router status` | The configuration loaded at startup: strategy, models, classifier, diagnostics, debug, and the config files pi read |
+| `/jev-router usage` | Current branch |
+| `/jev-router usage --session` | Every entry in the current session file, including abandoned branches |
+| `/jev-router usage --json` | The same summary as JSON |
+| `/jev-router help` | This list. Bare `/jev-router` prints it too |
 
-A query calls no model and does not change state. `summarizeClassifierUsage(manager, virtual, scope)` returns the same summary. `virtual` defaults to provider `jev` and id `auto`. `scope` defaults to `branch`. The `apis` field lists the classifier adapters recorded on those attempts.
+`/jev-usage` is gone; use `/jev-router usage` with the same `--session` and `--json` flags. Pi treats an unknown slash command as an ordinary message, so the old spelling is sent to the model instead of failing: update habits and scripts with it.
+
+`status` and `usage` call no model and change no state. `status` reports the configuration that was loaded at startup, not live routing and not whether a model or classifier is available, and it names the config files pi actually read so a missing or unexpected file is visible. Restart Pi after editing a config file. Both subcommands keep working on a host without a UI by writing to `stdout`.
+
+A usage query reports the same summary as `summarizeClassifierUsage(manager, virtual, scope)`. `virtual` defaults to provider `jev` and id `auto`. `scope` defaults to `branch`. The `apis` field lists the classifier adapters recorded on those attempts.
 
 Each classification attempt has a random call id, a pending snapshot, and a terminal snapshot. A snapshot is counted once. A real retry after cancellation is a separate attempt. The summary counts attempts recorded by this version.
 
@@ -263,7 +271,7 @@ Reported tokens are not a bill. Missing usage, pending calls, and unknown or zer
 
 Reopen and compaction keep the usage entries. A branch query follows ancestry. A session query includes abandoned branches. A fork includes ancestor usage. Adding a parent total to a fork total counts the shared usage twice.
 
-On the Pi 1.2.0 live checks, direct classifier usage sat outside `/session`. After a Pi upgrade, compare host accounting with `/jev-usage` again before combining totals. Main assistant outcome records are already in Pi's session accounting.
+On the Pi 1.2.0 live checks, direct classifier usage sat outside `/session`. After a Pi upgrade, compare host accounting with `/jev-router usage` again before combining totals. Main assistant outcome records are already in Pi's session accounting.
 
 ### Thinking levels
 

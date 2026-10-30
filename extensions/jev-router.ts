@@ -696,20 +696,55 @@ export default function (pi: ExtensionAPI) {
 	};
 	const implementation = config.models.implementation;
 	const direct = config.models.direct ?? implementation ?? config.models.standard;
-	if (typeof pi.registerCommand === "function") pi.registerCommand("jev-usage", {
-		description: "Show classifier usage (--session for all branches, --json for structured output)",
+	/** Startup configuration summary. Read-only: no model call, no session write, no live router state. */
+	const statusText = () => {
+		const directSource = config.models.direct ? "models.direct" : implementation ? "follows models.implementation" : "follows models.standard";
+		const classifier = config.classifier
+			? `${config.classifier.provider}/${config.classifier.id} (configured; availability is decided per request)`
+			: "disabled (planning uses the standard model)";
+		return [
+			`Config view for ${config.virtual.provider}/${config.virtual.id}, read at startup; restart pi after editing a config file. This is the configured state, not live routing or model availability.`,
+			`strategy: ${config.strategy}`,
+			`planning: ${config.provider}/${config.models.complex} (complex), ${config.provider}/${config.models.standard} (standard)`,
+			`implementation: ${implementation ? `${config.provider}/${implementation}` : "none (no implementation model configured)"}`,
+			`direct: ${config.provider}/${direct} (${directSource})`,
+			`classifier: ${classifier}`,
+			`threshold: ${config.threshold}; prompt limit: ${config.promptLimit} chars`,
+			`diagnostics: ${config.diagnostics.record ? "recorded as session entries" : "off"}; debug: ${debug ? (config.debug ? "on" : `on ($${DEBUG_ENV})`) : "off"}`,
+			`config: ${files.length > 0 ? files.join(", ") : `built-in defaults (no file read; expected ${join(agentDir(), CONFIG_FILE_NAME)} or a file named by $${CONFIG_ENV})`}`,
+		].join("\n");
+	};
+	if (typeof pi.registerCommand === "function") pi.registerCommand("jev-router", {
+		description: "Show router configuration or classifier usage: /jev-router status | usage [--session] [--json]",
 		handler: async (args, ctx) => {
-			const flags = args.trim().split(/\s+/).filter(Boolean);
-			if (flags.some(flag => !["--session", "--json"].includes(flag))) {
-				ctx.ui.notify("Usage: /jev-usage [--session] [--json]", "error"); return;
+			/** One output path for interactive and headless hosts, so no branch calls a missing UI. */
+			const respond = (text: string, level: "info" | "error") => {
+				if (ctx.hasUI) { ctx.ui.notify(text, level); return; }
+				try { (level === "error" ? console.error : console.log)(text); } catch { diagnosticFailure(); }
+			};
+			const help = [
+				"Usage: /jev-router <command>",
+				"  status                        Configured strategy, models, classifier, and config files (nothing is called)",
+				"  usage [--session] [--json]    Classifier usage and cost for this branch or for the whole session",
+				"  help                          This text",
+			].join("\n");
+			const [sub, ...rest] = String(args ?? "").trim().split(/\s+/).filter(Boolean);
+			if (sub === undefined || ["help", "--help", "-h"].includes(sub)) { respond(help, "info"); return; }
+			if (sub === "status") {
+				if (rest.length > 0) { respond("Usage: /jev-router status", "error"); return; }
+				respond(statusText(), "info"); return;
 			}
-			const summary = summarizeClassifierUsage(ctx.sessionManager, config.virtual, flags.includes("--session") ? "session" : "branch");
-			const text = flags.includes("--json") ? JSON.stringify(summary) :
-				"Classifier usage (" + summary.scope + "): " + summary.calls + " calls; input " + summary.tokens.input +
-				", output " + summary.tokens.output + ", cache read " + summary.tokens.cacheRead + ", cache write " + summary.tokens.cacheWrite +
-				"; cost " + summary.cost + " (known subtotal " + summary.knownCost + "); missing usage " + summary.missingUsageCalls +
-				", pending " + summary.pendingCalls + ". Separate from /session; reported tokens are not a billing statement.";
-			if (ctx.hasUI) ctx.ui.notify(text, "info"); else console.log(text);
+			if (sub === "usage") {
+				if (rest.some(flag => !["--session", "--json"].includes(flag))) { respond("Usage: /jev-router usage [--session] [--json]", "error"); return; }
+				const summary = summarizeClassifierUsage(ctx.sessionManager, config.virtual, rest.includes("--session") ? "session" : "branch");
+				respond(rest.includes("--json") ? JSON.stringify(summary) :
+					"Classifier usage (" + summary.scope + "): " + summary.calls + " calls; input " + summary.tokens.input +
+					", output " + summary.tokens.output + ", cache read " + summary.tokens.cacheRead + ", cache write " + summary.tokens.cacheWrite +
+					"; cost " + summary.cost + " (known subtotal " + summary.knownCost + "); missing usage " + summary.missingUsageCalls +
+					", pending " + summary.pendingCalls + ". Separate from /session; reported tokens are not a billing statement.", "info");
+				return;
+			}
+			respond(`Unknown command "${sub}".\n` + help, "error");
 		},
 	});
 	/** Where to send a user whose config points at a model they do not have. */

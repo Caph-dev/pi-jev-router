@@ -190,7 +190,7 @@ async function queryUsage(h: any, scope = "branch") {
 	const before = { httpCount, chatCount, leaf: h.manager.getLeafId() }, lines: string[] = [];
 	const log = console.log;
 	console.log = (...parts: any[]) => { lines.push(parts.join(" ")); };
-	try { await bounded(h, () => h.session.prompt("/jev-usage --json" + (scope === "session" ? " --session" : ""))); }
+	try { await bounded(h, () => h.session.prompt("/jev-router usage --json" + (scope === "session" ? " --session" : ""))); }
 	finally { console.log = log; }
 	assert.deepEqual({ httpCount, chatCount, leaf: h.manager.getLeafId() }, before, "Usage query must not invoke a model or mutate the session");
 	assert.equal(lines.length, 1, "Command must return one structured result");

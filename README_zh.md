@@ -247,15 +247,23 @@ stderr 包含 `proposedModel`、`available`，以及值为 false 的 `applied`�
 
 诊断不进入模型上下文。它们不是另一份计费用量。主助手 outcome 的用量已经在 Pi 的会话总计里。
 
-### `/jev-usage` 命令
+### `/jev-router` 命令
+
+所有子命令都挂在一个命名空间下：
 
 | 命令 | 范围 |
 | --- | --- |
-| `/jev-usage` | 当前分支 |
-| `/jev-usage --session` | 当前会话文件里的全部条目，包括放弃的分支 |
-| `/jev-usage --json` | 同一份摘要，以 JSON 输出 |
+| `/jev-router status` | 启动时加载的配置：策略、模型、分类器、诊断、debug，以及 pi 实际读到的配置文件 |
+| `/jev-router usage` | 当前分支 |
+| `/jev-router usage --session` | 当前会话文件里的全部条目，包括放弃的分支 |
+| `/jev-router usage --json` | 同一份摘要，以 JSON 输出 |
+| `/jev-router help` | 这份列表。裸 `/jev-router` 也会打印它 |
 
-查询不调用模型，也不改变状态。`summarizeClassifierUsage(manager, virtual, scope)` 返回同一份摘要。`virtual` 的默认 provider 是 `jev`，默认 id 是 `auto`。`scope` 默认是 `branch`。`apis` 字段列出这些尝试里记录到的分类器适配器。
+`/jev-usage` 已移除，改用 `/jev-router usage`，`--session` 和 `--json` 参数不变。Pi 会把无法识别的斜杠命令当作普通消息发送，所以旧写法不会报错，而是变成一次模型请求：习惯和脚本都要改过来。
+
+`status` 和 `usage` 都不调用模型，也不改变状态。`status` 报告的是启动时加载的配置，不是实时路由，也不代表某个模型或分类器可用；它会列出 pi 实际读到的配置文件，少了文件或多了意外文件都能看出来。改完配置文件需要重启 Pi。两个子命令在没有 UI 的宿主上也会写入 `stdout`。
+
+usage 查询返回的摘要与 `summarizeClassifierUsage(manager, virtual, scope)` 相同。`virtual` 的默认 provider 是 `jev`，默认 id 是 `auto`。`scope` 默认是 `branch`。`apis` 字段列出这些尝试里记录到的分类器适配器。
 
 每次分类尝试都有一个随机 call id、一份 pending 快照和一份 terminal 快照。快照只计算一次。取消之后的一次真实重试另计一次。摘要只计算本版本记录的尝试。
 

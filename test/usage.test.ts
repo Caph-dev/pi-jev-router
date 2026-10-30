@@ -20,7 +20,7 @@ function setup(strategy = "adaptive", patch: any = {}) {
 	writeFileSync(path, JSON.stringify({ provider: "p", strategy, models: { standard: "mid", complex: "strong", implementation: "cheap" }, ...patch }));
 	process.env.JEV_ROUTER_CONFIG = path;
 	let definition: any, result: any = answer, serial = 0, state: any;
-	const entries: any[] = [], notices: string[] = [], commands = new Map<string, any>(), events = new Map<string, any>();
+	const entries: any[] = [], notices: string[] = [], noticeLevels: string[] = [], commands = new Map<string, any>(), events = new Map<string, any>();
 	let branch = entries, sessionId = "s1", persistenceFails = false;
 	const append = (customType: string, data: any) => { if (persistenceFails) throw Error("PERSISTENCE_SECRET"); const e = { type: "custom", customType, data, id: "c" + ++serial }; entries.push(e); if (branch !== entries) branch.push(e); };
 	(factory as any)({ getSettings: () => ({}), registerVirtualModel: (d: any) => { definition = d; }, appendEntry: append,
@@ -28,12 +28,12 @@ function setup(strategy = "adaptive", patch: any = {}) {
 	const manager = { getBranch: () => branch, getEntries: () => entries, getLeafId: () => branch.at(-1)?.id ?? null,
 		getSessionId: () => sessionId, buildSessionProjection: () => ({ entries: branch.map(sourceEntry => ({ sourceEntry, messages: sourceEntry.message ? [sourceEntry.message] : [] })) }) };
 	let count = 0;
-	const ctx: any = { sessionManager: manager, hasUI: true, ui: { notify: (text: string) => notices.push(text) }, modelRegistry: {
+	const ctx: any = { sessionManager: manager, hasUI: true, ui: { notify: (text: string, level?: string) => { notices.push(text); noticeLevels.push(level ?? "info"); } }, modelRegistry: {
 		find: (provider: string, id: string) => provider === "p" ? { id, provider, contextWindow: 100, maxTokens: 20 } : undefined,
 		findOfType: () => ({ provider: "typesafe", id: "jev-latest", cost: { input: 0 } }),
 		classify: (...args: any[]) => { count++; return typeof result === "function" ? result(...args) : Promise.resolve(result); },
 	} };
-	return { entries, manager, ctx, commands, notices, append, events,
+	return { entries, manager, ctx, commands, notices, noticeLevels, append, events,
 		set persistenceFails(value: boolean) { persistenceFails = value; },
 		get count() { return count; }, get state() { return state; }, set state(v: any) { state = v; },
 		get result() { return result; }, set result(v: any) { result = v; },
@@ -98,11 +98,11 @@ describe("persistent classifier usage", () => {
 		assert.equal(h.summary().calls, 1); assert.equal(h.summary().tokens.input, 10);
 		assert.equal(h.summary("session").calls, 2);
 	});
-	it("exposes the branch/session query as a command without invoking a model", async () => {
+	it("exposes the branch/session query as a subcommand without invoking a model", async () => {
 		const h = setup(); h.user(); await h.dispatch();
-		await h.commands.get("jev-usage").handler("--json", h.ctx);
+		await h.commands.get("jev-router").handler("usage --json", h.ctx);
 		assert.deepEqual(JSON.parse(h.notices.at(-1)!), h.summary()); assert.equal(h.count, 1);
-		await h.commands.get("jev-usage").handler("--session --json", h.ctx);
+		await h.commands.get("jev-router").handler("usage --session --json", h.ctx);
 		assert.deepEqual(JSON.parse(h.notices.at(-1)!), h.summary("session"));
 	});
 	it("retains unknown usage on errors and counts actual reattempts as new calls", async () => {
@@ -145,6 +145,110 @@ describe("persistent classifier usage", () => {
 	it("keeps known positive pricing while rejecting unsafe usage fields", async () => {
 		const h = setup(); h.ctx.modelRegistry.findOfType = () => ({ provider: "typesafe", id: "jev-latest", cost: { input: 1 } });
 		h.user(); await h.dispatch(); assert.equal(h.summary().cost, 0.04); assert.equal(h.summary().knownCost, 0.04);
+	});
+});
+
+describe("jev-router command surface", () => {
+	const saved = { config: process.env.JEV_ROUTER_CONFIG, debug: process.env.JEV_ROUTER_DEBUG, agent: process.env.PI_CODING_AGENT_DIR };
+	afterEach(() => {
+		for (const [key, value] of [["JEV_ROUTER_CONFIG", saved.config], ["JEV_ROUTER_DEBUG", saved.debug], ["PI_CODING_AGENT_DIR", saved.agent]] as const) {
+			if (value === undefined) delete process.env[key]; else process.env[key] = value;
+		}
+	});
+	const run = (h: any, args: string) => h.commands.get("jev-router").handler(args, h.ctx);
+
+	it("registers one namespaced command and drops the old name", () => {
+		const h = setup();
+		assert.deepEqual([...h.commands.keys()], ["jev-router"]);
+		assert.equal(h.commands.has("jev-usage"), false);
+	});
+	it("answers bare arguments with help at info level", async () => {
+		const h = setup();
+		for (const args of ["", "   ", "help", "--help", "-h"]) {
+			await run(h, args);
+			assert.equal(h.noticeLevels.at(-1), "info");
+			assert.match(h.notices.at(-1)!, /^Usage: \/jev-router <command>/);
+			assert.match(h.notices.at(-1)!, /\n  status +Configured strategy/);
+		}
+		assert.equal(h.entries.length, 0); assert.equal(h.count, 0);
+	});
+	it("reports the startup configuration without calling a model or writing entries", async () => {
+		const h = setup("adaptive", { diagnostics: { record: true } });
+		await run(h, "status");
+		assert.equal(h.noticeLevels.at(-1), "info");
+		const text = h.notices.at(-1)!;
+		assert.match(text, /^Config view for jev\/auto, read at startup/);
+		assert.match(text, /\nstrategy: adaptive\n/);
+		assert.match(text, /\nplanning: p\/strong \(complex\), p\/mid \(standard\)\n/);
+		assert.match(text, /\nimplementation: p\/cheap\n/);
+		assert.match(text, /\ndirect: p\/cheap \(follows models\.implementation\)\n/);
+		assert.match(text, /\nclassifier: typesafe\/jev-latest \(configured; availability is decided per request\)\n/);
+		assert.match(text, /\nthreshold: 0\.5; prompt limit: 16000 chars\n/);
+		assert.match(text, /\ndiagnostics: recorded as session entries; debug: off\n/);
+		assert.ok(text.includes("\nconfig: " + process.env.JEV_ROUTER_CONFIG), "status names the config file it read");
+		assert.equal(h.count, 0); assert.equal(h.entries.length, 0);
+	});
+	it("reports an explicit direct model and its source", async () => {
+		const h = setup("fixed", { models: { standard: "mid", complex: "strong", implementation: "cheap", direct: "fast" } });
+		await run(h, "status");
+		assert.match(h.notices.at(-1)!, /\ndirect: p\/fast \(models\.direct\)\n/);
+	});
+	it("does not claim a planning-only route when only the direct model is set", async () => {
+		const h = setup("fixed", { models: { standard: "mid", complex: "strong", implementation: null, direct: "fast" } });
+		await run(h, "status");
+		const text = h.notices.at(-1)!;
+		assert.match(text, /\nimplementation: none \(no implementation model configured\)\n/);
+		assert.match(text, /\ndirect: p\/fast \(models\.direct\)\n/);
+		assert.doesNotMatch(text, /every request/);
+	});
+	it("reports a disabled classifier and the environment-only debug override", async () => {
+		process.env.JEV_ROUTER_DEBUG = "1";
+		const h = setup("adaptive", { classifier: null });
+		await run(h, "status");
+		const text = h.notices.at(-1)!;
+		assert.match(text, /\nclassifier: disabled \(planning uses the standard model\)\n/);
+		assert.match(text, /debug: on \(\$JEV_ROUTER_DEBUG\)/);
+	});
+	it("reports built-in defaults when no config file is read", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "jev-status-defaults-")); dirs.push(dir);
+		delete process.env.JEV_ROUTER_CONFIG; delete process.env.JEV_ROUTER_DEBUG; process.env.PI_CODING_AGENT_DIR = dir;
+		const commands = new Map<string, any>(); const notices: string[] = [];
+		(factory as any)({ getSettings: () => ({}), registerVirtualModel: () => {}, appendEntry: () => {},
+			registerCommand: (name: string, c: any) => commands.set(name, c), on: () => {} });
+		await commands.get("jev-router").handler("status", { hasUI: true, ui: { notify: (text: string) => notices.push(text) } });
+		assert.match(notices.at(-1)!, /\nconfig: built-in defaults \(no file read; expected /);
+		assert.match(notices.at(-1)!, /\nstrategy: fixed\n/);
+		assert.match(notices.at(-1)!, /\nplanning: openai-codex\/gpt-6-astra \(complex\), openai-codex\/gpt-6\.1-sol \(standard\)\n/);
+	});
+	it("rejects extra or unknown arguments without calling a model", async () => {
+		const h = setup();
+		await run(h, "status --session");
+		assert.equal(h.notices.at(-1), "Usage: /jev-router status"); assert.equal(h.noticeLevels.at(-1), "error");
+		await run(h, "usage --deep");
+		assert.equal(h.notices.at(-1), "Usage: /jev-router usage [--session] [--json]"); assert.equal(h.noticeLevels.at(-1), "error");
+		await run(h, "bogus");
+		assert.equal(h.noticeLevels.at(-1), "error");
+		assert.match(h.notices.at(-1)!, /^Unknown command "bogus"\.\nUsage: \/jev-router <command>/);
+		assert.equal(h.count, 0); assert.equal(h.entries.length, 0);
+	});
+	it("writes info to stdout and errors to stderr when the host has no UI", async () => {
+		const h = setup();
+		const out: string[] = [], err: string[] = []; const savedLog = console.log, savedError = console.error;
+		console.log = (...parts: unknown[]) => void out.push(parts.join(" ")); console.error = (...parts: unknown[]) => void err.push(parts.join(" "));
+		const headless = { ...h.ctx, hasUI: false, ui: { notify: () => { throw Error("NO_UI"); } } };
+		try {
+			await h.commands.get("jev-router").handler("usage", headless);
+			await h.commands.get("jev-router").handler("" , headless);
+			await h.commands.get("jev-router").handler("status", headless);
+			await h.commands.get("jev-router").handler("bogus", headless);
+			await h.commands.get("jev-router").handler("status --session", headless);
+		} finally { console.log = savedLog; console.error = savedError; }
+		assert.equal(out.length, 3); assert.equal(err.length, 2);
+		assert.match(out[0], /^Classifier usage \(branch\): 0 calls/);
+		assert.match(out[1], /^Usage: \/jev-router <command>/);
+		assert.match(out[2], /^Config view for jev\/auto/);
+		assert.match(err[0], /^Unknown command "bogus"/);
+		assert.equal(err[1], "Usage: /jev-router status");
 	});
 });
 
