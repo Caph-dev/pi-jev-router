@@ -8,10 +8,11 @@
  *   classifier rates the last user message; planning stays on the chosen model.
  * - Implementation: the *implementation* model (default `gpt-6-luna`).
  *
- * The planning model explores, plans, and makes the first edit. After the first successful `edit`
- * or `write` tool call, the next request of the same turn goes to the implementation model, and the
- * session stays there under the default fixed strategy. Adaptive re-evaluates at user and compaction
- * boundaries, allowing upgrades, dwell-limited downgrades, and renewed handoff. Cache behavior depends on the provider.
+ * The planning model explores, plans, and makes the first edit. Under `fixed` the first successful
+ * `edit` or `write` sends the next request of the same turn to the implementation model, and the
+ * branch stays there. The default `adaptive` strategy hands off only when every guarded condition
+ * holds, and re-evaluates at user and compaction boundaries, allowing upgrades, dwell-limited
+ * downgrades, and renewed handoff. Cache behavior depends on the provider.
  *
  * The phase is router state: pi stores it on the session branch, so it follows the session tree and
  * survives compaction. Thinking levels come from `modelThinkingLevels` in pi's settings, keyed by
@@ -37,9 +38,9 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext, ModelRoute, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
@@ -50,6 +51,7 @@ const PACKAGE_NAME = "pi-jev-router";
 const CONFIG_FILE_NAME = "jev-router.json";
 const CONFIG_ENV = "JEV_ROUTER_CONFIG";
 const DEBUG_ENV = "JEV_ROUTER_DEBUG";
+const STATE_FILE_NAME = "jev-router-state.json";
 
 /** Tools whose successful result means implementation has started. */
 const EDIT_TOOLS = new Set(["edit", "write"]);
@@ -111,7 +113,7 @@ export interface RouterConfig {
 
 /** Built-in defaults; exported so tests can assert what a config file leaves untouched. */
 export const DEFAULT_CONFIG: RouterConfig = {
-	strategy: "fixed",
+	strategy: "adaptive",
 	diagnostics: { record: false },
 	adaptive: { handoffTools: ["edit", "write"], handoffPolicy: "guarded", handoffThreshold: 0.2, maxHandoffContextTokens: 50_000, decisionTimeoutMs: 3000, downgradeThreshold: 0.15, minDwellTurns: 2, historyMaxTurns: 4, historyCharLimit: 8000 },
 	provider: "openai-codex",
@@ -527,6 +529,112 @@ function readConfigFile(path: string): Record<string, unknown> | undefined {
 	return parsed as Record<string, unknown>;
 }
 
+interface SetupState {
+	schemaVersion: 1;
+	version: string;
+	adaptiveApplied: boolean;
+}
+
+function stateFilePath(): string {
+	return join(agentDir(), STATE_FILE_NAME);
+}
+
+function packageVersion(): string | undefined {
+	try {
+		const parsed = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8")) as { version?: unknown };
+		return typeof parsed?.version === "string" && parsed.version.trim() ? parsed.version.trim() : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function readSetupState(path: string): SetupState | undefined {
+	let raw: string;
+	try {
+		raw = readFileSync(path, "utf-8");
+	} catch {
+		return undefined;
+	}
+	try {
+		const parsed = JSON.parse(raw) as Partial<SetupState> | null;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || parsed.schemaVersion !== 1 || typeof parsed.version !== "string")
+			return undefined;
+		return { schemaVersion: 1, version: parsed.version, adaptiveApplied: parsed.adaptiveApplied === true };
+	} catch {
+		return undefined;
+	}
+}
+
+function writeJsonAtomic(path: string, value: unknown): void {
+	// Rename would replace a symlinked config with a regular file, so write the link target instead.
+	let target = path;
+	try { target = realpathSync(path); } catch { }
+	const dir = dirname(target);
+	mkdirSync(dir, { recursive: true });
+	let mode: number | undefined;
+	try { mode = statSync(target).mode & 0o777; } catch { }
+	const temp = join(dir, `.${basename(target)}.${process.pid}.${randomUUID()}.tmp`);
+	try {
+		// The mode has to apply at creation: a config readable only by its owner must never sit at
+		// the default mode, even briefly.
+		writeFileSync(temp, JSON.stringify(value, null, 2) + "\n", mode === undefined ? undefined : { mode });
+		if (mode !== undefined) chmodSync(temp, mode);
+		renameSync(temp, target);
+	} catch (cause) {
+		try { rmSync(temp, { force: true }); } catch { }
+		throw cause;
+	}
+}
+
+function runSetupNotice(ctx: ExtensionContext, config: RouterConfig): void {
+	const version = packageVersion();
+	if (version === undefined) return;
+	const statePath = stateFilePath();
+	const stored = readSetupState(statePath);
+	if (stored?.version === version) return;
+
+	const parsed: Map<string, Record<string, unknown>> = new Map();
+	for (const path of configFileCandidates()) {
+		try {
+			const patch = readConfigFile(path);
+			if (patch) parsed.set(path, patch);
+		} catch { }
+	}
+
+	const lines: string[] = [];
+	let adaptiveApplied = stored?.adaptiveApplied === true;
+	if (!adaptiveApplied) {
+		adaptiveApplied = true;
+		let chosen: { path: string; patch: Record<string, unknown> } | undefined;
+		// `configFileCandidates()` is read in `loadConfig()` merge order, so the last file that sets a strategy wins.
+		for (const [path, patch] of parsed) if (Object.hasOwn(patch, "strategy")) chosen = { path, patch };
+		if (chosen && chosen.patch["strategy"] !== "adaptive") {
+			const previous = chosen.patch["strategy"];
+			writeJsonAtomic(chosen.path, { ...chosen.patch, strategy: "adaptive" });
+			config.strategy = "adaptive";
+			lines.push(
+				`${PACKAGE_NAME}: strategy "${typeof previous === "string" ? previous : JSON.stringify(previous)}" in ${chosen.path} ` +
+					`changed to "adaptive" once. Edit the file to change it back.`,
+			);
+		}
+	}
+
+	const configured = [...parsed.values()].some(patch => ["provider", "models", "classifier"].some(key => Object.hasOwn(patch, key)));
+	if (!configured) {
+		const path = process.env[CONFIG_ENV]?.trim() || join(agentDir(), CONFIG_FILE_NAME);
+		lines.push(
+			`${PACKAGE_NAME} ${version}: no configuration found. Set "provider", "models" (complex, standard, implementation) ` +
+				`and "classifier" in ${path}, then restart pi. Run /jev-router status to check.`,
+		);
+	}
+
+	writeJsonAtomic(statePath, { schemaVersion: 1, version, adaptiveApplied });
+	if (lines.length === 0) return;
+	const text = lines.join("\n");
+	if (ctx.hasUI) { ctx.ui.notify(text, "info"); return; }
+	try { console.log(text); } catch { diagnosticFailure(); }
+}
+
 function stringField(value: unknown, path: string, key: string): string | undefined {
 	if (value === undefined || value === null) return undefined;
 	if (typeof value !== "string" || value.trim() === "") fail(`${path}: "${key}" must be a non-empty string`);
@@ -785,6 +893,12 @@ export default function (pi: ExtensionAPI) {
 		`planning ${config.provider}/${config.models.complex} | ${config.provider}/${config.models.standard}` +
 			` → ${implementation ? `${config.provider}/${implementation}` : "no implementation phase"}`,
 	);
+
+	if (typeof pi.on === "function") {
+		pi.on("session_start", (_event, ctx) => {
+			try { runSetupNotice(ctx, config); } catch { diagnosticFailure(); }
+		});
+	}
 
 	const definition = {
 		provider: config.virtual.provider,

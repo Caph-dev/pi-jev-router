@@ -95,7 +95,7 @@ describe("missing models", () => {
 		process.env[CONFIG_ENV] = join(agentDir, "missing.json");
 
 		await assert.rejects(
-			() => register().route(request("user"), context([])),
+			() => register().route(request("user"), { ...context([]), sessionManager: { getBranch: () => [], getLeafId: () => null, buildSessionProjection: () => ({ entries: [] }) } }),
 			(error: unknown) => {
 				assert.ok(error instanceof Error);
 				// No classifier and no models: the router falls back to the standard model, per the README.
@@ -109,7 +109,7 @@ describe("missing models", () => {
 	});
 
 	it("points at the config file that was read", async () => {
-		const path = write(tempDir(), { provider: "anthropic", models: { complex: "absent", standard: "absent" } });
+		const path = write(tempDir(), { strategy: "fixed", provider: "anthropic", models: { complex: "absent", standard: "absent" } });
 		process.env[CONFIG_ENV] = path;
 
 		await assert.rejects(
@@ -149,9 +149,8 @@ describe("direct requests", () => {
 const slots = { complex: "strong", standard: "mid", implementation: "cheap" };
 const choice = (probability: number) => ({ stopReason: "stop", answers: { complexity: { type: "choice", probabilities: { complex: probability } } } });
 
-/** Save changed route state before simulated downstream work, matching the host contract. */
 function harness(patch: any = {}, levels = {}) {
-	process.env[CONFIG_ENV] = write(tempDir(), { provider: "p", models: slots, ...patch });
+	process.env[CONFIG_ENV] = write(tempDir(), { provider: "p", models: slots, strategy: "fixed", ...patch });
 	const definition = register(levels);
 	const ctx: any = context(["strong", "mid", "cheap"]);
 	ctx.getContextUsage = () => ({ tokens: 100 });

@@ -80,7 +80,7 @@ async function open(label: string, options: any = {}) {
 	const agentDir = join(dir, "agent"); mkdirSync(agentDir);
 	const cwd = options.cwd ?? join(dir, "workspace"); mkdirSync(cwd, { recursive: true });
 	const config = join(dir, "jev-router.json");
-	writeFileSync(config, JSON.stringify({ ...(options.strategy === "fixed" ? {} : { strategy: "adaptive" }), provider,
+	writeFileSync(config, JSON.stringify({ strategy: options.strategy ?? "adaptive", provider,
 		models: { complex: sol, standard: sol, implementation: luna, direct: luna },
 		classifier: options.classifier === false ? null : { provider: "typesafe", id: "jev-latest" },
 		debug: false }), { mode: 0o600 });

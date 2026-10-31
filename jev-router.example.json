@@ -1,5 +1,5 @@
 {
-  "strategy": "fixed",
+  "strategy": "adaptive",
   "diagnostics": { "record": false },
   "adaptive": {
     "handoffTools": ["edit", "write"],

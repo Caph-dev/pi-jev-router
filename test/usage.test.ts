@@ -217,7 +217,7 @@ describe("jev-router command surface", () => {
 			registerCommand: (name: string, c: any) => commands.set(name, c), on: () => {} });
 		await commands.get("jev-router").handler("status", { hasUI: true, ui: { notify: (text: string) => notices.push(text) } });
 		assert.match(notices.at(-1)!, /\nconfig: built-in defaults \(no file read; expected /);
-		assert.match(notices.at(-1)!, /\nstrategy: fixed\n/);
+		assert.match(notices.at(-1)!, /\nstrategy: adaptive\n/);
 		assert.match(notices.at(-1)!, /\nplanning: openai-codex\/gpt-6-astra \(complex\), openai-codex\/gpt-6\.1-sol \(standard\)\n/);
 	});
 	it("rejects extra or unknown arguments without calling a model", async () => {
