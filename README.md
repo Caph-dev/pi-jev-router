@@ -61,7 +61,7 @@ current native user entry at initialization
 | Strategy | Initial planning | After a successful write | Later native user entry |
 | --- | --- | --- | --- |
 | `fixed` | Classify once, or reuse an available previous planning model | Hand off to `models.implementation` | Keep the current model |
-| `adaptive` | Same choice. Guarded handoff is the default | Hand off when every guarded condition holds | Upgrade to `models.complex` at `threshold`, then lock planning |
+| `adaptive` | Same choice. Guarded handoff is the default | Hand off when every guarded condition holds | Re-decide at each new user entry and compaction. Upgrade when eligible, or downgrade subject to `minDwellTurns`. Re-arm handoff when eligible |
 | `shadow` | Same route as `fixed` | Same route as `fixed` | Record the upgrade and keep the `fixed` model |
 
 When the first classification is unavailable, the router selects `models.standard`. When a later classification is unavailable, the router keeps the current model.
@@ -146,7 +146,8 @@ Set `threshold` again after a change to the classifier, the model, or `classifie
 | `adaptive.handoffThreshold` | `0.2` | Highest complex probability that still allows guarded handoff. From 0 to 1 |
 | `adaptive.maxHandoffContextTokens` | `50000` | Largest context estimate that still allows guarded handoff. An integer from 1 to the maximum safe integer |
 | `adaptive.handoffTools` | `edit`, `write` | Tool names whose success can hand off under `adaptive` |
-| `adaptive.contextMode` | `last-user-only` | `recent-conversation` adds earlier turns inside the history limits. Adaptive classification and later shadow checks use this mode |
+| `adaptive.downgradeThreshold` | `0.15` | Complex can downgrade at or below this probability. Must be below `threshold` |
+| `adaptive.minDwellTurns` | `2` | Evaluated user turns required in complex before downgrade, from 1 to 20 |
 | `adaptive.historyMaxTurns` | `4` | Earlier complete turns to keep. An integer from 1 to 8 |
 | `adaptive.historyCharLimit` | `8000` | History text limit in UTF-16 code units. An integer from 1 to 32000 |
 
@@ -185,15 +186,17 @@ A probability at or above `threshold` selects `models.complex`. A lower probabil
 
 Guarded adaptive handoff requires all of the following:
 
-- The initial slot was `models.standard`. The complex probability was valid, below `threshold`, and at most `adaptive.handoffThreshold`. A reused planning model has no stored probability. Guarded handoff requires that probability.
+- The resulting slot is `models.standard`. The complex probability was valid, below `threshold`, and at most `adaptive.handoffThreshold`. A reused planning model has no stored probability. Guarded handoff requires that probability.
 - The current native projected text is non-empty, within `promptLimit`, and has no image. The classifier input still matches the input used for the decision. State stores the SHA-256 digest of that input.
 - A successful call from `adaptive.handoffTools` appears after both the current native user entry and `stageStartEntryId`.
 - The context-token estimate is finite, zero or greater, and at most `adaptive.maxHandoffContextTokens`.
 - `models.implementation` is still in the catalog.
 
-An initial complex selection locks handoff under `guarded`. Disabled classification, a missing classifier, an invalid answer, an error, or a timeout does not allow guarded handoff. A new native user entry locks an initial handoff that has not run.
+A complex selection locks handoff. Disabled classification, a missing classifier, an invalid answer, an error, or a timeout does not allow guarded handoff. A new user boundary replaces the previous handoff evidence.
 
-Each new native entry id is assessed at most once. The same text with a new id is a new request. A complex slot skips later assessment. An upgrade locks planning on `models.complex`. With the same configuration and catalog, a branch gets at most one initial handoff and one upgrade. The router has no task-end check. A complex slot stays on `models.complex` for the rest of that route.
+Each new native user entry is assessed once, including on complex. A probability at or above `threshold` upgrades a non-complex slot. Complex downgrades to standard when the probability is at or below `adaptive.downgradeThreshold`, the current input is complete, and `adaptive.minDwellTurns` evaluated user turns have elapsed in the slot. Incomplete input prevents downgrade. Unavailable classification keeps the model. Slot changes reset the dwell count. A branch may upgrade and hand off multiple times.
+
+Each new compaction entry also triggers one assessment on the next user or continuation request. Compaction does not increase the dwell count. A new user entry and compaction together cause one assessment. A retry does not consume a pending compaction. Re-enabling handoff sets a new write boundary, so earlier writes cannot trigger it.
 
 To keep the older first-write rule, set the policy in config:
 
@@ -201,7 +204,7 @@ To keep the older first-write rule, set the policy in config:
 { "strategy": "adaptive", "adaptive": { "handoffPolicy": "first-write" } }
 ```
 
-`first-write` allows handoff after an initial complex selection, and when classification was unavailable. It skips the text checks and the context-token limit. A later upgrade still locks planning.
+`first-write` allows handoff from standard even when classification was unavailable. It skips the text checks and the context-token limit. Complex remains locked.
 
 A nested call with status `ok` counts when the outer tool later fails or its record is incomplete. The call shows that a write finished. It does not show that the whole task finished. A failed or unfinished nested call does not count. Tool arguments do not count. Prose that says the file was written does not count. A successful wrapper tool does not count.
 
@@ -217,7 +220,7 @@ A retry locks any handoff that is still open. Repeating a retry does not append 
 
 ### State and migration
 
-Adaptive state uses `schemaVersion` 1 and `policyVersion` `"adaptive-v2"`. Older phase and model state migrates with handoff locked. `adaptive-v1` state migrates the same way.
+Adaptive state uses `schemaVersion` 1 and `policyVersion` `"adaptive-v3"`. Older phase and model state, `adaptive-v1`, and `adaptive-v2` migrate with handoff locked. Existing compactions are marked handled during migration.
 
 A configuration change, a provider change, or a lost `stageStartEntryId` ends the previous handoff. Invalid adaptive state fails with `invalid adaptive state; start a new session or switch strategy to fixed`.
 
@@ -283,13 +286,7 @@ By default, classifier input is the projected visible text of the last native us
 
 `fixed`, and the initial `shadow` classification, send a `state.prompt` payload. `adaptive` sends `state.current`. With no source entry, or with empty projected text, the router does not call the classifier.
 
-History sharing is off by default. `adaptive.contextMode` does not change `fixed` classification or the initial shadow classification. The following file turns history on:
-
-```json
-{ "strategy": "adaptive", "adaptive": { "contextMode": "recent-conversation" } }
-```
-
-`recent-conversation` adds `state.recentTurns` and `state.historyPartial`. Adaptive classification and later shadow checks then include that history plus the current user text.
+Adaptive classification and later shadow checks always include `state.recentTurns` and `state.historyPartial` alongside the current user text. The removed `adaptive.contextMode` is ignored with a warning. Fixed and initial shadow classification remain unchanged.
 
 A previous turn holds native user text and successful assistant text, in time order. Assistant text counts when `stopReason` is `stop` or `toolUse`. The history omits tools, thinking, images, system messages, custom messages, summaries, and failed or aborted responses.
 

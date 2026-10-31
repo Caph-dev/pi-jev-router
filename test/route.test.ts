@@ -335,13 +335,13 @@ describe("adaptive classification T07–T24", () => {
 		const writes = h.writes;
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "strong"); assert.equal(h.writes, writes);
-		h.user("continue"); assert.equal((await h.dispatch()).model.id, "strong"); assert.equal(h.calls.length, 2);
+		h.user("continue"); assert.equal((await h.dispatch()).model.id, "strong"); assert.equal(h.calls.length, 3);
 	});
 	it("same entry is judged once; identical text on a new ID is judged again", async () => {
 		const h = await initialized(); const writes = h.writes;
 		await h.dispatch(); assert.equal(h.calls.length, 1); assert.equal(h.writes, writes);
 		h.user(); await h.dispatch(); assert.equal(h.calls.length, 2);
-		assert.equal(h.state.stageSeq, 1); assert.equal(h.state.handoff, "locked");
+		assert.equal(h.state.stageSeq, 1); assert.equal(h.state.handoff, "first-write");
 	});
 	for (const [label, result] of [
 		["simple", choice(0.499)], ["error", { stopReason: "error", errorMessage: "SECRET" }],
@@ -428,16 +428,16 @@ describe("guarded adaptive handoff", () => {
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "mid");
 	});
-	it("explicit first-write policy preserves the feat initial complex handoff", async () => {
+	it("explicit first-write policy keeps complex locked", async () => {
 		const h = await initialized({ adaptive: { handoffPolicy: "first-write" } }, 0.9);
 		h.add({ role: "toolResult", toolName: "write", isError: false });
-		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
+		assert.equal((await h.dispatch("continuation")).model.id, "strong");
 	});
 	it("old policy state migrates locked without reopening handoff", async () => {
 		const h = await initialized(); h.state = { ...h.state, policyVersion: "adaptive-v1" };
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "mid"); assert.equal(h.state.handoff, "locked");
-		assert.equal(h.state.policyVersion, "adaptive-v2");
+		assert.equal(h.state.policyVersion, "adaptive-v3");
 	});
 });
 
@@ -478,7 +478,7 @@ describe("handoff and branch boundaries T25–T36", () => {
 	it("new user reassessment wins over the previous write and disables delayed handoff", async () => {
 		const h = await initialized(); h.add({ role: "toolResult", toolName: "write", isError: false });
 		h.user("continue"); h.result = choice(0.1); await h.dispatch(); await h.dispatch("continuation");
-		assert.equal(h.state.model, "mid"); assert.equal(h.state.handoff, "locked"); assert.equal(h.state.stageSeq, 1);
+		assert.equal(h.state.model, "mid"); assert.equal(h.state.handoff, "first-write"); assert.equal(h.state.stageSeq, 1);
 	});
 	it("missing stage anchor locks; a later new user can still upgrade", async () => {
 		const h = await initialized(); h.state = { ...h.state, stageStartEntryId: "lost" };
@@ -586,6 +586,12 @@ describe("shadow observations", () => {
 		assert.equal((await h.dispatch()).model.id, "cheap"); const writes = h.writes;
 		await h.dispatch(); await h.dispatch("retry"); assert.equal(h.calls.length, 2);
 		assert.equal(h.writes, writes); assert.equal(h.state.model, "cheap");
+	});
+	it("later shadow classification includes recent history and partial status", async () => {
+		const h = harness({ strategy: "shadow" }); h.user("first"); h.result = choice(0.1); await h.dispatch();
+		h.add({ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "answer" }] });
+		h.branch.push({ type: "context_edit", id: "edit" }); h.user("next"); await h.dispatch();
+		assert.deepEqual(h.calls[1][1].state, { current: "next", recentTurns: [{ user: "first", assistant: ["answer"] }], historyPartial: true });
 	});
 	it("shadow cancellation does not consume a new user", async () => {
 		const h = harness({ strategy: "shadow" }); h.user(); h.result = choice(0.1); await h.dispatch();
@@ -697,7 +703,7 @@ describe("decision records", () => {
 });
 
 function historyFixture(patch: any = {}) {
-	const h = harness({ strategy: "adaptive", adaptive: { contextMode: "recent-conversation", ...patch } });
+	const h = harness({ strategy: "adaptive", adaptive: { ...patch } });
 	h.user("old"); h.add({ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "answer" }] });
 	h.user("recent"); h.add({ role: "assistant", stopReason: "toolUse", content: [{ type: "text", text: "plan" }, { type: "thinking", thinking: "THINK_SECRET" }, { type: "toolCall", arguments: { text: "ARG_SECRET" } }] });
 	h.add({ role: "toolResult", toolName: "read", content: [{ type: "text", text: "FILE_SECRET" }] });
@@ -716,11 +722,11 @@ describe("provenance and history payload T50–T56", () => {
 			...(["custom_message", "message", "bashExecution"].map((type, i) => ({ sourceEntry: { type, id: "extra" + i, message: { role: type === "message" ? "bashExecution" : "user" } }, messages: [{ role: "user", content: "INJECTED_SECRET" }] }))),
 		];
 		await h.dispatch("user", { messages: [{ role: "user", content: "REQUEST_SECRET" }] });
-		assert.deepEqual(h.calls[0][1].state, { current: "edit" });
+		assert.deepEqual(h.calls[0][1].state, { current: "edit", recentTurns: [], historyPartial: true });
 		assert.match(h.calls[0][1].questions.complexity.instructions, /state.current/);
 		assert.doesNotMatch(JSON.stringify(h.state), /RAW_SECRET|edited|INJECTED_SECRET/);
 	});
-	it("recent-conversation sends chronological complete rounds, successful assistant text only", async () => {
+	it("sends chronological complete rounds with successful assistant text only", async () => {
 		const h = historyFixture(); await h.dispatch();
 		assert.deepEqual(h.calls[0][1].state, { current: "current", recentTurns: [{ user: "old", assistant: ["answer"] }, { user: "recent", assistant: ["plan"] }], historyPartial: true });
 		assert.match(h.calls[0][1].questions.complexity.instructions, /state.recentTurns/);
@@ -746,12 +752,12 @@ describe("provenance and history payload T50–T56", () => {
 		assert.deepEqual(input.recentTurns, [{ user: "recent", assistant: ["visible"] }]); assert.equal(input.historyPartial, true);
 		assert.doesNotMatch(JSON.stringify(input), /old|answer|plan|SUMMARY_SECRET/);
 	});
-	it("classifier disabled sends nothing even when history enabled", async () => {
-		const h = harness({ strategy: "adaptive", classifier: null, adaptive: { contextMode: "recent-conversation" } }); h.user();
+	it("classifier disabled sends nothing", async () => {
+		const h = harness({ strategy: "adaptive", classifier: null }); h.user();
 		await h.dispatch(); assert.equal(h.calls.length, 0);
 	});
-	it("fixed ignores adaptive context mode and retains prompt payload", async () => {
-		const h = harness({ adaptive: { contextMode: "recent-conversation" } }); h.user(); await h.dispatch();
+	it("fixed retains the prompt payload", async () => {
+		const h = harness(); h.user(); await h.dispatch();
 		assert.deepEqual(h.calls[0][1].state, { prompt: "task" });
 	});
 });
@@ -761,7 +767,7 @@ describe("shared slot IDs and late classification", () => {
 		const h = await initialized({ models: { ...slots, standard: "strong" } });
 		assert.equal(h.state.slot, "standard"); const seq = h.state.stageSeq;
 		h.user("complex"); h.result = choice(1); await h.dispatch();
-		assert.equal(h.calls.length, 2); assert.equal(h.state.slot, "complex"); assert.equal(h.state.stageSeq, seq); assert.equal(h.state.handoff, "locked");
+		assert.equal(h.calls.length, 2); assert.equal(h.state.slot, "complex"); assert.equal(h.state.stageSeq, seq + 1); assert.equal(h.state.handoff, "locked");
 	});
 	it("timeout after initialization keeps model and handles a late success without state changes", async () => {
 		const h = await initialized({ adaptive: { decisionTimeoutMs: 2 } });
@@ -777,8 +783,94 @@ describe("shared slot IDs and late classification", () => {
 	});
 });
 
+describe("adaptive v3 boundaries", () => {
+	it("clears stale handoff evidence when a standard compaction holds", async () => {
+		const h = harness({ strategy: "adaptive" }); h.user();
+		h.branch.push({ type: "context_edit", id: "edit" }); h.result = choice(0.1); await h.dispatch();
+		assert.equal(h.state.handoffEvidence.probability, 0.1);
+		h.branch.push({ type: "compaction", id: "c1" }); h.result = choice(0.4); await h.dispatch("continuation");
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid");
+		assert.equal(h.state.handoff, "locked"); assert.equal(h.state.handoffEvidence, undefined);
+	});
+	it("re-arms handoff on a standard compaction only for subsequent writes", async () => {
+		const h = harness({ strategy: "adaptive" }); h.user();
+		h.branch.push({ type: "context_edit", id: "edit" }); h.result = choice(0.4); await h.dispatch();
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		h.branch.push({ type: "compaction", id: "c1" }); h.result = choice(0.1); await h.dispatch("continuation");
+		assert.equal(h.state.handoff, "first-write"); assert.equal(h.state.handoffEvidence.probability, 0.1);
+		assert.equal(h.state.stageStartEntryId, "c1");
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid");
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		await h.dispatch("continuation"); assert.equal(h.state.model, "cheap");
+	});
+	it("clears handoff evidence when standard compaction classification is unavailable", async () => {
+		const h = harness({ strategy: "adaptive" }); h.user();
+		h.branch.push({ type: "context_edit", id: "edit" }); h.result = choice(0.1); await h.dispatch();
+		h.branch.push({ type: "compaction", id: "c1" }); h.result = { stopReason: "error" }; await h.dispatch("continuation");
+		assert.equal(h.state.handoff, "locked"); assert.equal(h.state.handoffEvidence, undefined);
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid");
+	});
+	it("respects dwell, excludes old writes, and permits repeated upgrades and handoffs", async () => {
+		const h = await initialized({}, 1);
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		h.user("simple one"); h.result = choice(0.15); await h.dispatch();
+		assert.equal(h.state.model, "strong"); assert.equal(h.state.turnsInSlot, 1);
+		h.user("simple two"); await h.dispatch(); assert.equal(h.state.model, "mid");
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid");
+		h.add({ role: "toolResult", toolName: "write", isError: false }); await h.dispatch("continuation"); assert.equal(h.state.model, "cheap");
+		h.user("hard again"); h.result = choice(0.5); await h.dispatch(); assert.equal(h.state.model, "strong");
+		for (const text of ["simple three", "simple four"]) { h.user(text); h.result = choice(0.1); await h.dispatch(); }
+		assert.equal(h.state.model, "mid"); h.add({ role: "toolResult", toolName: "edit", isError: false });
+		await h.dispatch("continuation"); assert.equal(h.state.model, "cheap");
+		h.user("hard again"); h.result = choice(1); await h.dispatch(); assert.equal(h.state.model, "strong");
+	});
+	for (const kind of ["image", "long", "empty", "unavailable"]) it("does not downgrade on " + kind, async () => {
+		const h = await initialized({ promptLimit: 4, adaptive: { minDwellTurns: 1 } }, 1);
+		const user = h.user(kind === "empty" ? "" : kind === "long" ? "longer" : "ok");
+		if (kind === "image") user.message.content.push({ type: "image", data: "x" });
+		h.result = kind === "unavailable" ? { stopReason: "error" } : choice(0);
+		await h.dispatch(); assert.equal(h.state.model, "strong");
+	});
+	it("handles compaction once, defers it on retry, and lets new users supersede it", async () => {
+		const h = await initialized(); h.branch.push({ type: "compaction", id: "c1" }); h.result = choice(1);
+		await h.dispatch("retry"); assert.equal(h.calls.length, 1); assert.equal(h.state.lastCompactionEntryId, null);
+		await h.dispatch("continuation"); assert.equal(h.state.model, "strong"); assert.equal(h.calls.length, 2);
+		await h.dispatch("continuation"); assert.equal(h.calls.length, 2);
+		h.user("simple"); h.result = choice(0); await h.dispatch();
+		h.branch.push({ type: "compaction", id: "c2" }); await h.dispatch("continuation"); assert.equal(h.state.model, "strong");
+		h.user("simple two"); h.branch.push({ type: "compaction", id: "c3" }); const before = h.calls.length;
+		await h.dispatch(); assert.equal(h.calls.length, before + 1); assert.equal(h.state.model, "mid");
+		await h.dispatch("continuation"); assert.equal(h.calls.length, before + 1);
+	});
+	it("downgrades on compaction once dwell is met and consumes missing input", async () => {
+		const h = await initialized({}, 1); h.user("next"); h.result = choice(1); await h.dispatch();
+		h.user("next again"); await h.dispatch(); h.result = choice(0);
+		h.branch.push({ type: "compaction", id: "c1" }); await h.dispatch("continuation"); assert.equal(h.state.model, "mid");
+		h.projection = []; h.branch.push({ type: "compaction", id: "c2" }); const before = h.calls.length;
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid"); assert.equal(h.state.lastCompactionEntryId, "c2");
+		await h.dispatch("continuation"); assert.equal(h.calls.length, before);
+	});
+	it("rejects stale guarded evidence after compaction", async () => {
+		const h = await initialized(); h.branch.push({ type: "compaction", id: "c1" });
+		h.result = { stopReason: "error" }; await h.dispatch("continuation");
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		await h.dispatch("continuation"); assert.equal(h.state.model, "mid"); assert.equal(h.state.handoff, "locked");
+	});
+	it("allows upgrade with incomplete input", async () => {
+		const h = await initialized({ promptLimit: 2 }); h.user("longer"); h.result = choice(1);
+		await h.dispatch(); assert.equal(h.state.model, "strong");
+	});
+	it("does not replay existing compaction during migration", async () => {
+		const h = await initialized(); h.branch.push({ type: "compaction", id: "old" });
+		h.state = { ...h.state, policyVersion: "adaptive-v2" }; await h.dispatch("continuation");
+		assert.equal(h.calls.length, 1); assert.equal(h.state.lastCompactionEntryId, "old");
+	});
+});
+
 describe("configuration and stage invariants", () => {
-	for (const patch of [{ models: { ...slots, standard: "cheap" } }, { adaptive: { handoffTools: ["save"] } }, { adaptive: { contextMode: "recent-conversation" } }])
+	for (const patch of [{ models: { ...slots, standard: "cheap" } }, { adaptive: { handoffTools: ["save"] } }, { adaptive: { historyMaxTurns: 2 } }])
 		it("policy change rebuilds locked stage: " + JSON.stringify(patch), async () => {
 			const original = await initialized(); const h = harness({ strategy: "adaptive", ...patch }); h.user(); h.state = original.state;
 			await h.dispatch(); assert.equal(h.state.stageSeq, 2); assert.equal(h.state.handoff, "locked"); assert.equal(h.state.model, "mid");
@@ -805,7 +897,7 @@ describe("configuration and stage invariants", () => {
 	});
 	it("history counts UTF-16 text and leaves the current budget independent", async () => {
 		for (const [limit, count] of [[3, 1], [2, 0]]) {
-			const h = harness({ strategy: "adaptive", promptLimit: 2, adaptive: { contextMode: "recent-conversation", historyCharLimit: limit } });
+			const h = harness({ strategy: "adaptive", promptLimit: 2, adaptive: { historyCharLimit: limit } });
 			h.user("🙂"); h.add({ role: "assistant", stopReason: "stop", content: "x" }); h.user("abcd"); await h.dispatch();
 			assert.equal(h.calls[0][1].state.recentTurns.length, count); assert.equal(h.calls[0][1].state.current, "ab");
 		}

@@ -61,7 +61,7 @@ pi -e ./extensions/jev-router.ts --model jev/auto
 | 策略 | 初始规划 | 成功写入之后 | 之后的原生用户条目 |
 | --- | --- | --- | --- |
 | `fixed` | 分类一次，或复用可用的上一规划模型 | 交接给 `models.implementation` | 保持当前模型 |
-| `adaptive` | 同样的选择。默认是守卫式交接 | 守卫条件全部成立时交接 | 概率达到 `threshold` 时升级到 `models.complex`，然后锁定规划 |
+| `adaptive` | 同样的选择。默认是守卫式交接 | 守卫条件全部成立时交接 | 每个新用户条目和每次压缩后重新判定。可升级或按 `minDwellTurns` 限制降级，符合条件时重新启用交接 |
 | `shadow` | 与 `fixed` 相同的路由 | 与 `fixed` 相同的路由 | 记录这次升级，并保持 `fixed` 的模型 |
 
 第一次分类不可用时，路由选择 `models.standard`。之后的分类不可用时，路由保持当前模型。
@@ -146,7 +146,8 @@ Pi 读取下表中的文件。
 | `adaptive.handoffThreshold` | `0.2` | 仍允许守卫式交接的最高 complex 概率。范围从 0 到 1 |
 | `adaptive.maxHandoffContextTokens` | `50000` | 仍允许守卫式交接的最大上下文估算。从 1 到最大安全整数的整数 |
 | `adaptive.handoffTools` | `edit`、`write` | 成功后能在 `adaptive` 下触发交接的工具名 |
-| `adaptive.contextMode` | `last-user-only` | `recent-conversation` 在历史限制内加入更早的轮次。Adaptive 分类和之后的 shadow 检查使用这个模式 |
+| `adaptive.downgradeThreshold` | `0.15` | complex 概率不高于此值时可降级，必须低于 `threshold` |
+| `adaptive.minDwellTurns` | `2` | complex 降级前需评估的用户轮数，整数 1 到 20 |
 | `adaptive.historyMaxTurns` | `4` | 要保留的更早完整轮数。从 1 到 8 的整数 |
 | `adaptive.historyCharLimit` | `8000` | 历史文本上限，单位是 UTF-16 code unit。从 1 到 32000 的整数 |
 
@@ -185,15 +186,17 @@ Pi 读取下表中的文件。
 
 守卫式 adaptive 交接需要同时满足下面各项：
 
-- 初始槽位是 `models.standard`。complex 概率有效，低于 `threshold`，并且不超过 `adaptive.handoffThreshold`。复用的规划模型没有已保存的概率。守卫式交接需要这份概率。
+- 决策后的槽位是 `models.standard`。complex 概率有效，低于 `threshold`，并且不超过 `adaptive.handoffThreshold`。复用的规划模型没有已保存的概率。守卫式交接需要这份概率。
 - 当前原生投影文本非空，在 `promptLimit` 以内，并且没有图片。分类器输入仍与决策时使用的输入一致。状态保存该输入的 SHA-256 摘要。
 - `adaptive.handoffTools` 里的一次成功调用，出现在当前原生用户条目和 `stageStartEntryId` 之后。
 - 上下文 token 估算是有限数，大于或等于 0，并且不超过 `adaptive.maxHandoffContextTokens`。
 - `models.implementation` 仍在模型目录中。
 
-在 `guarded` 下，初始选中 complex 会锁定交接。分类被关闭、分类器缺失、回答无效、报错或超时，都不允许守卫式交接。新的原生用户条目会锁定尚未执行的初始交接。
+选中 complex 会锁定交接。分类被关闭、分类器缺失、回答无效、报错或超时，都不允许守卫式交接。新的用户边界会替换之前的交接证据。
 
-每个新的原生条目 id 最多评估一次。文本相同但 id 不同，算一次新请求。complex 槽位跳过之后的评估。升级把规划锁在 `models.complex`。配置和模型目录不变时，一个分支最多有一次初始交接和一次升级。路由不检查任务是否结束。complex 槽位在这条路由的剩余部分保持 `models.complex`。
+每个新的原生用户条目评估一次，complex 槽位也会评估。概率达到 `threshold` 时，非 complex 槽位升级。概率不高于 `adaptive.downgradeThreshold`、当前输入完整且 complex 中已评估至少 `adaptive.minDwellTurns` 个用户轮次时，complex 降级到 standard。输入不完整时不降级，分类不可用时保持当前模型。槽位改变时驻留计数归零。同一分支可以多次升级和交接。
+
+每个新压缩条目在下次 user 或 continuation 请求时评估一次。压缩不增加驻留计数。新用户与压缩同时出现时只评估一次。重试不消费待处理的压缩。重新启用交接会设置新的写入边界，旧写入不会触发交接。
 
 要保留更早的 first-write 规则，在配置里设置这个策略：
 
@@ -201,7 +204,7 @@ Pi 读取下表中的文件。
 { "strategy": "adaptive", "adaptive": { "handoffPolicy": "first-write" } }
 ```
 
-`first-write` 允许在初始选中 complex 之后交接，也允许在分类不可用时交接。它跳过文本检查和上下文 token 上限。之后的升级仍会锁定规划。
+`first-write` 允许 standard 在分类不可用时交接。它跳过文本检查和上下文 token 上限。complex 仍锁定交接。
 
 状态为 `ok` 的嵌套调用，在外层工具后来失败或记录不完整时仍然算数。这次调用表明写入已经完成。它不表明整个任务已经完成。失败或未完成的嵌套调用不算。工具参数不算。正文里说文件已经写好，不算。成功的包装工具不算。
 
@@ -217,7 +220,7 @@ Pi 读取下表中的文件。
 
 ### 状态与迁移
 
-Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v2"`。更早的 phase 和 model 状态在迁移时锁定交接。`adaptive-v1` 状态按同样的方式迁移。
+Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v3"`。更早的 phase 和 model 状态、`adaptive-v1`、`adaptive-v2` 迁移时锁定交接，并将已有压缩标记为已处理。
 
 配置变化、provider 变化，或丢失 `stageStartEntryId`，都会结束之前的交接。非法的 adaptive 状态会失败，错误文本是 `invalid adaptive state; start a new session or switch strategy to fixed`。
 
@@ -283,13 +286,7 @@ usage 查询返回的摘要与 `summarizeClassifierUsage(manager, virtual, scope
 
 `fixed` 和最初的 `shadow` 分类发送 `state.prompt` 负载。`adaptive` 发送 `state.current`。没有来源条目，或投影文本为空时，路由不调用分类器。
 
-历史共享默认关闭。`adaptive.contextMode` 不改变 `fixed` 的分类，也不改变最初的 shadow 分类。下面的文件打开历史共享：
-
-```json
-{ "strategy": "adaptive", "adaptive": { "contextMode": "recent-conversation" } }
-```
-
-`recent-conversation` 加入 `state.recentTurns` 和 `state.historyPartial`。Adaptive 分类和之后的 shadow 检查随后带上这段历史和当前用户文本。
+Adaptive 分类和之后的 shadow 检查始终在当前用户文本之外包含 `state.recentTurns` 与 `state.historyPartial`。已移除的 `adaptive.contextMode` 会告警并忽略。Fixed 和最初的 shadow 分类不变。
 
 上一轮包含原生用户文本和成功的助手文本，按时间顺序排列。`stopReason` 为 `stop` 或 `toolUse` 时，助手文本计入。历史会省略工具、思考、图片、system 消息、custom 消息、摘要，以及失败或中止的响应。
 

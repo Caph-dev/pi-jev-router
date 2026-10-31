@@ -10,8 +10,8 @@
  *
  * The planning model explores, plans, and makes the first edit. After the first successful `edit`
  * or `write` tool call, the next request of the same turn goes to the implementation model, and the
- * session stays there under the default fixed strategy. Opt-in adaptive permits later user-boundary
- * upgrades to complex and then locks planning. Cache behavior depends on the provider.
+ * session stays there under the default fixed strategy. Adaptive re-evaluates at user and compaction
+ * boundaries, allowing upgrades, dwell-limited downgrades, and renewed handoff. Cache behavior depends on the provider.
  *
  * The phase is router state: pi stores it on the session branch, so it follows the session tree and
  * survives compaction. Thinking levels come from `modelThinkingLevels` in pi's settings, keyed by
@@ -65,7 +65,8 @@ export interface RouterConfig {
 		handoffThreshold: number;
 		maxHandoffContextTokens: number;
 		decisionTimeoutMs: number;
-		contextMode: "last-user-only" | "recent-conversation";
+		downgradeThreshold: number;
+		minDwellTurns: number;
 		historyMaxTurns: number;
 		historyCharLimit: number;
 	};
@@ -112,7 +113,7 @@ export interface RouterConfig {
 export const DEFAULT_CONFIG: RouterConfig = {
 	strategy: "fixed",
 	diagnostics: { record: false },
-	adaptive: { handoffTools: ["edit", "write"], handoffPolicy: "guarded", handoffThreshold: 0.2, maxHandoffContextTokens: 50_000, decisionTimeoutMs: 3000, contextMode: "last-user-only", historyMaxTurns: 4, historyCharLimit: 8000 },
+	adaptive: { handoffTools: ["edit", "write"], handoffPolicy: "guarded", handoffThreshold: 0.2, maxHandoffContextTokens: 50_000, decisionTimeoutMs: 3000, downgradeThreshold: 0.15, minDwellTurns: 2, historyMaxTurns: 4, historyCharLimit: 8000 },
 	provider: "openai-codex",
 	models: {
 		complex: "gpt-6-astra",
@@ -146,7 +147,7 @@ interface RouterState {
 
 interface AdaptiveState extends RouterState {
 	schemaVersion: 1;
-	policyVersion: "adaptive-v1" | "adaptive-v2";
+	policyVersion: "adaptive-v1" | "adaptive-v2" | "adaptive-v3";
 	strategy: "adaptive";
 	provider: string;
 	slot: "complex" | "standard" | "implementation" | "retained";
@@ -155,6 +156,8 @@ interface AdaptiveState extends RouterState {
 	handoff: "first-write" | "locked";
 	lastEvaluatedUserEntryId: string | null;
 	configKey: string;
+	turnsInSlot: number;
+	lastCompactionEntryId: string | null;
 	handoffEvidence?: { inputKey: string; probability: number };
 }
 
@@ -175,6 +178,22 @@ function modelSlot(config: RouterConfig, state: RouterState): AdaptiveState["slo
 	return "retained";
 }
 
+function latestCompaction(branch: Branch): string | null {
+	return branch.findLast(entry => entry.type === "compaction")?.id ?? null;
+}
+
+function boundaryDecision(point: "user" | "compaction", slot: AdaptiveState["slot"], result: ComplexityResult,
+	complete: boolean, turns: number, config: RouterConfig): { slot: AdaptiveState["slot"]; reason: string } {
+	if (result.kind !== "classified") return { slot, reason: point === "compaction" ? "compaction-unavailable" : "keep-unavailable" };
+	if (result.probability >= config.threshold && slot !== "complex")
+		return { slot: "complex", reason: point === "compaction" ? "compaction-upgrade" : "upgrade" };
+	if (slot === "complex" && complete && result.probability <= config.adaptive.downgradeThreshold) {
+		if (turns >= config.adaptive.minDwellTurns) return { slot: "standard", reason: point === "compaction" ? "compaction-downgrade" : "downgrade" };
+		return { slot, reason: point === "compaction" ? "compaction-hold" : "hold-dwell" };
+	}
+	return { slot, reason: point === "compaction" ? "compaction-hold" : "keep-simple" };
+}
+
 /** Normalize locally; no state is committed until route returns successfully. */
 function normalizeAdaptiveState(raw: RouterState | AdaptiveState | undefined, config: RouterConfig,
 	branch: Branch, leaf: string | null, exists: (id: string) => boolean): AdaptiveState | undefined {
@@ -185,11 +204,12 @@ function normalizeAdaptiveState(raw: RouterState | AdaptiveState | undefined, co
 	const key = configIdentity(config);
 	let state: AdaptiveState;
 	if (!("schemaVersion" in raw)) {
-		state = { ...raw, schemaVersion: 1, policyVersion: "adaptive-v2", strategy: "adaptive",
+		state = { ...raw, schemaVersion: 1, policyVersion: "adaptive-v3", strategy: "adaptive",
 			provider: config.provider, slot: modelSlot(config, raw), stageSeq: 1,
-			stageStartEntryId: leaf, handoff: "locked", lastEvaluatedUserEntryId: null, configKey: key };
+			stageStartEntryId: leaf, handoff: "locked", lastEvaluatedUserEntryId: null, configKey: key,
+			turnsInSlot: config.adaptive.minDwellTurns, lastCompactionEntryId: latestCompaction(branch) };
 	} else {
-		if (raw.schemaVersion !== 1 || !["adaptive-v1", "adaptive-v2"].includes(raw.policyVersion) || raw.strategy !== "adaptive" ||
+		if (raw.schemaVersion !== 1 || !["adaptive-v1", "adaptive-v2", "adaptive-v3"].includes(raw.policyVersion) || raw.strategy !== "adaptive" ||
 			typeof raw.provider !== "string" || !raw.provider || typeof raw.configKey !== "string" ||
 			!Number.isSafeInteger(raw.stageSeq) || raw.stageSeq < 1 ||
 			!["complex", "standard", "implementation", "retained"].includes(raw.slot) ||
@@ -201,14 +221,19 @@ function normalizeAdaptiveState(raw: RouterState | AdaptiveState | undefined, co
 		if (raw.configKey === key && raw.provider === config.provider && exists(raw.model) && raw.slot !== "retained" && config.models[raw.slot] !== raw.model) invalid();
 		if (raw.handoffEvidence !== undefined && (!raw.handoffEvidence || typeof raw.handoffEvidence.inputKey !== "string" ||
 			!Number.isFinite(raw.handoffEvidence.probability) || raw.handoffEvidence.probability < 0 || raw.handoffEvidence.probability > 1)) invalid();
+		if (raw.policyVersion === "adaptive-v3" && (!Number.isSafeInteger(raw.turnsInSlot) || raw.turnsInSlot < 0 ||
+			!(raw.lastCompactionEntryId === null || (typeof raw.lastCompactionEntryId === "string" && raw.lastCompactionEntryId.length > 0)))) invalid();
 		state = raw;
 	}
-	if (state.policyVersion !== "adaptive-v2") state = { ...state, policyVersion: "adaptive-v2", handoff: "locked", handoffEvidence: undefined };
+	if (state.policyVersion !== "adaptive-v3") state = { ...state, policyVersion: "adaptive-v3", handoff: "locked", handoffEvidence: undefined,
+		turnsInSlot: config.adaptive.minDwellTurns, lastCompactionEntryId: latestCompaction(branch) };
 	if (state.configKey !== key || state.provider !== config.provider || !exists(state.model)) {
 		const retain = state.provider === config.provider && exists(state.model);
 		state = { ...state, configKey: key, provider: config.provider, handoff: "locked", stageStartEntryId: leaf,
 			model: retain ? state.model : config.models.standard, phase: retain ? state.phase : "planning" };
+		const oldSlot = state.slot;
 		state.slot = !retain ? "standard" : state.slot !== "retained" && config.models[state.slot] === state.model ? state.slot : modelSlot(config, state);
+		if (state.slot !== oldSlot) state.turnsInSlot = 0;
 	}
 	if (state.stageStartEntryId === null || !branch.some(entry => entry.id === state.stageStartEntryId)) {
 		if (state.handoff !== "locked") state = { ...state, handoff: "locked" };
@@ -341,7 +366,6 @@ type ClassifierInput = { current: string; recentTurns?: RecentTurn[]; historyPar
 function buildClassifierInput(config: RouterConfig, projection: Projection, branch: Branch,
 	user: ReturnType<typeof currentUser>): ClassifierInput {
 	const current = (user?.text ?? "").slice(0, config.promptLimit);
-	if (config.adaptive.contextMode === "last-user-only") return { current };
 	let historyPartial = branch.some(entry => ["compaction", "context_edit", "branch_summary"].includes(entry.type));
 	const turns: RecentTurn[] = [];
 	let turn: RecentTurn | undefined;
@@ -565,7 +589,7 @@ function thinkingLevelsField(value: unknown, path: string): ModelThinkingLevel[]
 }
 
 const CONFIG_KEYS = new Set(["provider", "models", "virtual", "classifier", "threshold", "promptLimit", "debug", "strategy", "adaptive", "diagnostics"]);
-const ADAPTIVE_KEYS = new Set(["handoffPolicy", "handoffThreshold", "maxHandoffContextTokens", "handoffTools", "decisionTimeoutMs", "contextMode", "historyMaxTurns", "historyCharLimit"]);
+const ADAPTIVE_KEYS = new Set(["handoffPolicy", "handoffThreshold", "maxHandoffContextTokens", "handoffTools", "decisionTimeoutMs", "downgradeThreshold", "minDwellTurns", "historyMaxTurns", "historyCharLimit"]);
 const MODEL_KEYS = new Set(["complex", "standard", "implementation", "direct"]);
 const VIRTUAL_KEYS = new Set(["provider", "id", "name", "thinkingLevels", "contextWindow", "maxTokens"]);
 const CLASSIFIER_KEYS = new Set(["provider", "id", "temperature", "timeoutMs"]);
@@ -636,7 +660,8 @@ function mergeConfig(base: RouterConfig, path: string): { config: RouterConfig; 
 				handoffThreshold: adaptive.handoffThreshold === null ? fail(`${path}: "adaptive.handoffThreshold" must be a number`) : numberField(adaptive.handoffThreshold, path, "adaptive.handoffThreshold", 0, 1) ?? base.adaptive.handoffThreshold,
 				maxHandoffContextTokens: integerField(adaptive.maxHandoffContextTokens, path, "adaptive.maxHandoffContextTokens", Number.MAX_SAFE_INTEGER) ?? base.adaptive.maxHandoffContextTokens,
 				decisionTimeoutMs: integerField(adaptive.decisionTimeoutMs, path, "adaptive.decisionTimeoutMs", 60000) ?? base.adaptive.decisionTimeoutMs,
-				contextMode: enumField(adaptive.contextMode, path, "adaptive.contextMode", ["last-user-only", "recent-conversation"] as const) ?? base.adaptive.contextMode,
+				downgradeThreshold: adaptive.downgradeThreshold === null ? fail(`${path}: "adaptive.downgradeThreshold" must be a number`) : numberField(adaptive.downgradeThreshold, path, "adaptive.downgradeThreshold", 0, 1) ?? base.adaptive.downgradeThreshold,
+				minDwellTurns: adaptive.minDwellTurns === null ? fail(`${path}: "adaptive.minDwellTurns" must be an integer`) : integerField(adaptive.minDwellTurns, path, "adaptive.minDwellTurns", 20) ?? base.adaptive.minDwellTurns,
 				historyMaxTurns: integerField(adaptive.historyMaxTurns, path, "adaptive.historyMaxTurns", 8) ?? base.adaptive.historyMaxTurns,
 				historyCharLimit: integerField(adaptive.historyCharLimit, path, "adaptive.historyCharLimit", 32000) ?? base.adaptive.historyCharLimit,
 			},
@@ -674,6 +699,8 @@ export function loadConfig(): { config: RouterConfig; files: string[] } {
 		config = merged.config;
 		if (merged.found) files.push(path);
 	}
+	if (config.adaptive.downgradeThreshold >= config.threshold)
+		fail(`${files.at(-1) ?? CONFIG_FILE_NAME}: "adaptive.downgradeThreshold" must be less than "threshold"`);
 	return { config, files };
 }
 
@@ -813,7 +840,7 @@ export default function (pi: ExtensionAPI) {
 				);
 				const fromProvider = request.state?.provider ?? request.previous?.model.provider ?? config.provider;
 				const from = request.state?.model ?? request.previous?.model.id ?? null;
-				const decision = { strategy: config.strategy, policyVersion: config.strategy === "adaptive" ? "adaptive-v2" : config.strategy,
+				const decision = { strategy: config.strategy, policyVersion: config.strategy === "adaptive" ? "adaptive-v3" : config.strategy,
 					requestReason: request.reason, stageSeq: state && "stageSeq" in state ? state.stageSeq : null,
 					from, to: id, decisionReason, classifierStatus, classifierApi, probability, classifierDurationMs,
 					switched: from !== null && (from !== id || fromProvider !== config.provider), ...(usage ? { usage } : {}),
@@ -839,6 +866,7 @@ export default function (pi: ExtensionAPI) {
 					fail("adaptive requires host branch/projection support; upgrade pi or use strategy fixed");
 				const branch = manager.getBranch();
 				const leaf = manager.getLeafId();
+				const compaction = latestCompaction(branch);
 				let candidate = normalizeAdaptiveState(request.state, config, branch, leaf, id => Boolean(ctx.modelRegistry.find(config.provider, id)));
 				if (candidate !== request.state) decisionReason = "state-recovered";
 				const projection = manager.buildSessionProjection();
@@ -848,15 +876,16 @@ export default function (pi: ExtensionAPI) {
 				const inputKey = createHash("sha256").update(JSON.stringify(input)).digest("hex");
 				const completeInput = Boolean(user?.text.trim() && !user.hasImages && user.text.length <= config.promptLimit);
 				const createState = (id: string, handoff: AdaptiveState["handoff"], slot = modelSlot(config, { phase: "planning", model: id })): AdaptiveState => ({
-					phase: "planning", model: id, schemaVersion: 1, policyVersion: "adaptive-v2", strategy: "adaptive",
+					phase: "planning", model: id, schemaVersion: 1, policyVersion: "adaptive-v3", strategy: "adaptive",
 					provider: config.provider, slot, stageSeq: 1,
 					stageStartEntryId: leaf, handoff, lastEvaluatedUserEntryId: user?.id ?? null, configKey: key,
+					turnsInSlot: 0, lastCompactionEntryId: compaction,
 				});
 				const finish = (state: AdaptiveState, level?: ModelThinkingLevel) => {
 					request.signal?.throwIfAborted();
 					const original = request.state;
 					if (original && "schemaVersion" in original) {
-						const changed = original.model !== state.model || original.phase !== state.phase || original.configKey !== state.configKey || original.provider !== state.provider;
+						const changed = original.model !== state.model || original.phase !== state.phase || original.slot !== state.slot || original.configKey !== state.configKey || original.provider !== state.provider;
 						state = { ...state, stageSeq: original.stageSeq + (changed ? 1 : 0),
 							stageStartEntryId: changed ? leaf : state.stageStartEntryId };
 						if (JSON.stringify(state) === JSON.stringify(original)) state = original;
@@ -879,6 +908,7 @@ export default function (pi: ExtensionAPI) {
 					if ((!candidate && allowed && id === implementation) || (candidate && id !== candidate.model)) {
 						state.phase = id === implementation ? "implementation" : "planning";
 						state.slot = modelSlot(config, state);
+						if (candidate && state.slot !== candidate.slot) state.turnsInSlot = 0;
 					}
 					return finish(state, allowed ? failed?.thinkingLevel : undefined);
 				}
@@ -895,24 +925,36 @@ export default function (pi: ExtensionAPI) {
 					const evidence = slot === "standard" && completeInput && assessment?.kind === "classified" &&
 						assessment.probability < config.threshold && assessment.probability <= config.adaptive.handoffThreshold ?
 						{ inputKey, probability: assessment.probability } : undefined;
-					const firstWrite = request.reason === "user" && user && leaf && branch.some(entry => entry.id === leaf) && implementation && config.adaptive.handoffTools.length > 0 &&
+					const firstWrite = slot === "standard" && request.reason === "user" && user && leaf && branch.some(entry => entry.id === leaf) && implementation && config.adaptive.handoffTools.length > 0 &&
 						(config.adaptive.handoffPolicy === "first-write" || evidence !== undefined);
 					const state = createState(id ?? config.models.standard, firstWrite ? "first-write" : "locked", slot);
 					if (firstWrite && evidence) state.handoffEvidence = evidence;
 					return finish(state);
 				}
-				if (request.reason === "user" && user && user.id !== candidate.lastEvaluatedUserEntryId) {
-					candidate = { ...candidate, lastEvaluatedUserEntryId: user.id, handoff: "locked" };
-					if (candidate.slot !== "complex") {
-						const result = observe(await classifyComplexity(pi, request, ctx, config, buildClassifierInput(config, projection, branch, user)));
-						decisionReason = result.kind === "classified" ? "keep-simple" : "keep-unavailable";
-						if (result.kind === "classified" && result.probability >= config.threshold) {
-							decisionReason = "target-missing";
-							if (ctx.modelRegistry.find(config.provider, config.models.complex)) {
-								decisionReason = "upgrade";
-								candidate = { ...candidate, model: config.models.complex, phase: "planning", slot: "complex" };
-							}
-						}
+				const newUser = request.reason === "user" && user && user.id !== candidate.lastEvaluatedUserEntryId;
+				const pendingCompaction = compaction !== null && compaction !== candidate.lastCompactionEntryId;
+				if (newUser || ((request.reason === "user" || request.reason === "continuation") && pendingCompaction)) {
+					const point = newUser ? "user" : "compaction";
+					const turns = candidate.turnsInSlot + (newUser ? 1 : 0);
+					const result = observe(await classifyComplexity(pi, request, ctx, config, input));
+					const decision = boundaryDecision(point, candidate.slot, result, completeInput, turns, config);
+					decisionReason = decision.reason;
+					const changing = decision.slot !== candidate.slot;
+					const target = decision.slot === "complex" ? config.models.complex : config.models.standard;
+					candidate = { ...candidate, turnsInSlot: turns, lastCompactionEntryId: compaction,
+						lastEvaluatedUserEntryId: newUser ? user!.id : candidate.lastEvaluatedUserEntryId };
+					if (changing && ctx.modelRegistry.find(config.provider, target)) {
+						candidate = { ...candidate, model: target, phase: "planning", slot: decision.slot, turnsInSlot: 0 };
+					} else if (changing) decisionReason = "target-missing";
+					const evidence = candidate.slot === "standard" && completeInput && result.kind === "classified" &&
+						result.probability < config.threshold && result.probability <= config.adaptive.handoffThreshold ? { inputKey, probability: result.probability } : undefined;
+					const enable = candidate.slot === "standard" && Boolean(user && leaf && implementation && config.adaptive.handoffTools.length) &&
+						(config.adaptive.handoffPolicy === "first-write" || evidence !== undefined);
+					if (newUser || ((changing || point === "compaction") && candidate.slot === "standard")) {
+						candidate = { ...candidate, handoff: enable ? "first-write" : "locked", handoffEvidence: enable ? evidence : undefined,
+							stageStartEntryId: enable ? leaf : candidate.stageStartEntryId };
+					} else if (candidate.slot === "complex") {
+						candidate = { ...candidate, handoff: "locked", handoffEvidence: undefined };
 					}
 				} else if (request.reason === "continuation" && candidate.handoff === "first-write" && candidate.phase === "planning" && implementation &&
 					hasSuccessfulWriteAfterBoundary(branch, candidate, user?.id, config.adaptive.handoffTools)) {
@@ -932,7 +974,7 @@ export default function (pi: ExtensionAPI) {
 					decisionReason = "handoff-model-unavailable";
 					if (ctx.modelRegistry.find(config.provider, implementation)) {
 						decisionReason = "initial-write";
-						candidate = { ...candidate, model: implementation, phase: "implementation", slot: "implementation", handoff: "locked" };
+						candidate = { ...candidate, model: implementation, phase: "implementation", slot: "implementation", turnsInSlot: 0, handoff: "locked" };
 					}
 				}
 				if (decisionReason === "keep-state" && request.reason === "user") decisionReason = "already-evaluated";

@@ -320,17 +320,25 @@ describe("final routing configuration", () => {
 });
 
 describe("M2 history configuration", () => {
-	it("keeps history off by default and merges personal/project fields", () => {
-		assert.equal(DEFAULT_CONFIG.adaptive.contextMode, "last-user-only");
+	it("warns and ignores removed contextMode", () => {
+		const messages = captureWarnings();
+		assert.deepEqual(load(write(tempDir(), { adaptive: { contextMode: "last-user-only" } })).config, DEFAULT_CONFIG);
+		assert.deepEqual(reasons(messages), ['ignoring unknown key "adaptive.contextMode"']);
+	});
+	it("rejects downgrade threshold at or above threshold after merging", () => {
+		for (const value of [0.5, 0.6]) assertFails(/adaptive.downgradeThreshold/, write(tempDir(), { adaptive: { downgradeThreshold: value } }));
+	});
+	it("merges history limits across personal and project fields", () => {
+		assert.equal(DEFAULT_CONFIG.adaptive.minDwellTurns, 2);
 		const root = tempDir(), project = join(root, "project");
-		write(join(root, "agent"), { strategy: "adaptive", adaptive: { contextMode: "recent-conversation", historyMaxTurns: 2 } });
+		write(join(root, "agent"), { strategy: "adaptive", adaptive: { historyMaxTurns: 2 } });
 		write(join(project, ".pi"), { adaptive: { historyCharLimit: 123 } });
 		delete process.env[CONFIG_ENV]; process.env[AGENT_ENV] = join(root, "agent"); process.chdir(project);
 		const { config } = loadConfig();
 		assert.equal(config.adaptive.historyMaxTurns, 2); assert.equal(config.adaptive.historyCharLimit, 123);
-		assert.equal(config.adaptive.contextMode, "recent-conversation"); assert.equal(config.adaptive.decisionTimeoutMs, 3000);
+		assert.equal(config.adaptive.decisionTimeoutMs, 3000);
 	});
-	for (const [key, values] of [["contextMode", [null, false, "all"]], ["historyMaxTurns", [null, 0, 9, 1.5]], ["historyCharLimit", [null, 0, 32001, "8000"]]] as const)
+	for (const [key, values] of [["minDwellTurns", [null, 0, 21, 1.5]], ["downgradeThreshold", [null, -1, 1.1]], ["historyMaxTurns", [null, 0, 9, 1.5]], ["historyCharLimit", [null, 0, 32001, "8000"]]] as const)
 		for (const value of values) it("rejects " + key + "=" + JSON.stringify(value), () => {
 			assertFails(new RegExp("adaptive." + key), write(tempDir(), { adaptive: { [key]: value } }));
 		});

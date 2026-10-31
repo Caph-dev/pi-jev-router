@@ -7,7 +7,8 @@
     "handoffThreshold": 0.2,
     "maxHandoffContextTokens": 50000,
     "decisionTimeoutMs": 3000,
-    "contextMode": "last-user-only",
+    "downgradeThreshold": 0.15,
+    "minDwellTurns": 2,
     "historyMaxTurns": 4,
     "historyCharLimit": 8000
   },

@@ -26,11 +26,11 @@ function nativeUser(text: string) { return { role: "user", content: [{ type: "te
 function stateOf(manager: any) {
 	return manager.getBranch().findLast((entry: any) => entry.type === "custom" && entry.customType === "pi.virtual-model-state" && entry.data?.provider === "jev" && entry.data?.modelId === "auto")?.data.state;
 }
-function setup(history = false, patch: any = {}) {
+function setup(patch: any = {}) {
 	const dir = mkdtempSync(join(tmpdir(), "jev-host-")); dirs.push(dir);
 	const configFile = join(dir, "jev-router.json");
 	writeFileSync(configFile, JSON.stringify({ strategy: "adaptive", provider: "p", models: { complex: "strong", standard: "mid", implementation: "cheap" },
-		adaptive: { contextMode: history ? "recent-conversation" : "last-user-only" }, ...patch }));
+		adaptive: {}, ...patch }));
 	process.env.JEV_ROUTER_CONFIG = configFile;
 	let definition: any, activeManager: any, usage: any;
 	(factory as any)({ registerVirtualModel: (value: any) => { definition = value; }, getSettings: () => ({}),
@@ -61,14 +61,14 @@ function setup(history = false, patch: any = {}) {
 const hostOptions = { skip: host ? false : "set PI_ROUTER_HOST_MODULE to the installed pi public entry" };
 describe("real SessionManager final fixed integration", () => {
 	it("fixed classifies visible native text despite converted custom messages", hostOptions, async () => {
-		const h = setup(false, { strategy: "fixed" }); const manager = host.SessionManager.inMemory(h.dir);
+		const h = setup({ strategy: "fixed" }); const manager = host.SessionManager.inMemory(h.dir);
 		const user = manager.appendMessage(nativeUser("RAW_SECRET"));
 		manager.appendContextEdit(user, { content: [{ type: "text", text: "visible" }] });
 		manager.appendCustomMessageEntry("injected", "CUSTOM_SECRET", false);
 		await h.dispatch(manager); assert.deepEqual(h.inputs, [{ prompt: "visible" }]);
 	});
 	it("fixed retry and missing-model repair survive reopen without a delayed handoff", hostOptions, async () => {
-		const h = setup(false, { strategy: "fixed" }); h.probability = 1;
+		const h = setup({ strategy: "fixed" }); h.probability = 1;
 		const manager = host.SessionManager.create(h.dir, h.dir); manager.appendMessage(nativeUser("first"));
 		await h.dispatch(manager);
 		manager.appendMessage({ role: "toolResult", toolCallId: "w", toolName: "write", isError: false, content: [], timestamp: Date.now() });
@@ -84,6 +84,14 @@ describe("real SessionManager final fixed integration", () => {
 });
 
 describe("real SessionManager T57–T61", () => {
+	it("redecides once at a real compaction boundary", hostOptions, async () => {
+		const h = setup(); const manager = host.SessionManager.inMemory(h.dir);
+		const user = manager.appendMessage(nativeUser("task")); await h.dispatch(manager);
+		h.probability = 1; const compaction = manager.appendCompaction("summary", user, 1000);
+		assert.equal((await h.dispatch(manager, "continuation")).model.id, "strong");
+		assert.equal(stateOf(manager).lastCompactionEntryId, compaction); assert.equal(h.inputs.length, 2);
+		await h.dispatch(manager, "continuation"); assert.equal(h.inputs.length, 2);
+	});
 	it("T61 persists ledger across reopen, compaction and ancestor fork without duplicating calls", hostOptions, async () => {
 		const h = setup(); h.usage = { input: 10, output: 3, cacheRead: 2, cacheWrite: 0, totalTokens: 15 };
 		const manager = host.SessionManager.create(h.dir, h.dir); manager.appendMessage(nativeUser("first"));
@@ -126,7 +134,7 @@ describe("real SessionManager T57–T61", () => {
 		assert.equal(stateOf(fork).model, "strong"); assert.equal(stateOf(fork).handoff, "locked"); assert.equal(h.inputs.length, 2);
 	});
 	it("T59 compaction preserves branch state and only projected kept turns reach classifier", hostOptions, async () => {
-		const h = setup(true); const manager = host.SessionManager.create(h.dir, h.dir);
+		const h = setup(); const manager = host.SessionManager.create(h.dir, h.dir);
 		manager.appendMessage(nativeUser("OLD_USER_SECRET")); manager.appendMessage(assistant("OLD_ASSISTANT_SECRET"));
 		const kept = manager.appendMessage(nativeUser("kept")); await h.dispatch(manager);
 		manager.appendMessage(assistant("kept answer"));
@@ -136,10 +144,10 @@ describe("real SessionManager T57–T61", () => {
 		const input = h.inputs.at(-1);
 		assert.deepEqual(input, { current: "next", recentTurns: [{ user: "kept", assistant: ["kept answer"] }], historyPartial: true });
 		assert.doesNotMatch(JSON.stringify(input), /OLD_USER_SECRET|OLD_ASSISTANT_SECRET|SUMMARY_SECRET/);
-		assert.equal(stateOf(manager).stageSeq, 1); assert.equal(stateOf(manager).handoff, "locked");
+		assert.equal(stateOf(manager).stageSeq, 1); assert.equal(stateOf(manager).handoff, "first-write");
 	});
 	it("T60 context edits replace/delete visible text without resending original user or assistant bodies", hostOptions, async () => {
-		const h = setup(true); const manager = host.SessionManager.inMemory(h.dir);
+		const h = setup(); const manager = host.SessionManager.inMemory(h.dir);
 		const user = manager.appendMessage(nativeUser("RAW_USER_SECRET"));
 		const answer = manager.appendMessage(assistant("RAW_ASSISTANT_SECRET"));
 		manager.appendContextEdit(user, { content: [{ type: "text", text: "replaced" }] });
