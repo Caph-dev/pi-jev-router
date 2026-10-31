@@ -67,7 +67,7 @@ describe("real SessionManager final fixed integration", () => {
 		manager.appendCustomMessageEntry("injected", "CUSTOM_SECRET", false);
 		await h.dispatch(manager); assert.deepEqual(h.inputs, [{ prompt: "visible" }]);
 	});
-	it("fixed retry and missing-model repair survive reopen without a delayed handoff", hostOptions, async () => {
+	it("fixed retry handoff and missing-model repair survive reopen", hostOptions, async () => {
 		const h = setup({ strategy: "fixed" }); h.probability = 1;
 		const manager = host.SessionManager.create(h.dir, h.dir); manager.appendMessage(nativeUser("first"));
 		await h.dispatch(manager);
@@ -75,8 +75,8 @@ describe("real SessionManager final fixed integration", () => {
 		const retry = await h.dispatch(manager, "retry", { failed: { model: h.models.get("strong"), thinkingLevel: "high" } });
 		assert.equal(retry.model.id, "strong"); assert.equal(retry.thinkingLevel, "high");
 		const reopened = host.SessionManager.open(manager.getSessionFile(), h.dir);
-		assert.equal((await h.dispatch(reopened, "continuation")).model.id, "strong"); assert.equal(h.inputs.length, 1);
-		h.models.delete("strong"); await h.dispatch(reopened, "continuation");
+		assert.equal((await h.dispatch(reopened, "continuation")).model.id, "cheap"); assert.equal(h.inputs.length, 1);
+		h.models.delete("cheap"); await h.dispatch(reopened, "continuation");
 		const repaired = host.SessionManager.open(reopened.getSessionFile(), h.dir);
 		assert.equal(stateOf(repaired).model, "mid"); assert.equal(stateOf(repaired).handoff, "locked");
 		assert.equal((await h.dispatch(repaired, "continuation")).model.id, "mid");

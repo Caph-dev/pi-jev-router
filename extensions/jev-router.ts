@@ -904,6 +904,7 @@ export default function (pi: ExtensionAPI) {
 						[...Object.values(config.models), candidate?.model].includes(failed.model.id) &&
 						ctx.modelRegistry.find(config.provider, failed.model.id);
 					const id = allowed ? failed!.model.id : candidate?.model ?? previousPlanning() ?? config.models.standard;
+					if (candidate && id === candidate.model) return finish(candidate, allowed ? failed?.thinkingLevel : undefined);
 					const state = candidate ? { ...candidate, model: id, handoff: "locked" as const } : createState(id, "locked");
 					if ((!candidate && allowed && id === implementation) || (candidate && id !== candidate.model)) {
 						state.phase = id === implementation ? "implementation" : "planning";
@@ -1005,7 +1006,7 @@ export default function (pi: ExtensionAPI) {
 				const allowed = failed?.model.provider === config.provider && exists(failed.model.id) &&
 					[...Object.values(config.models), state?.model].includes(failed.model.id);
 				const id = allowed ? failed!.model.id : state?.model ?? previousPlanning ?? config.models.standard;
-				const next = state?.model === id && state.handoff === "locked" && !("schemaVersion" in state) ? state :
+				const next = state?.model === id && !("schemaVersion" in state) ? state :
 					fixedState(id, state?.model === id ? state.phase : id === implementation ? "implementation" : "planning", "locked");
 				return route(id, next, allowed ? failed?.thinkingLevel : undefined);
 			}

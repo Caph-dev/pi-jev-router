@@ -199,13 +199,13 @@ describe("final fixed boundaries", () => {
 		await assert.rejects(() => h.dispatch("user", { signal: controller.signal }), { name: "AbortError" });
 		assert.equal(h.writes, 0);
 	});
-	it("fixed retry keeps the failed model and thinking even after a successful write", async () => {
+	it("fixed retry keeps the failed model and hands off on continuation after a write", async () => {
 		const h = harness(); h.user(); await h.dispatch();
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		const routed = await h.dispatch("retry", { failed: { model: h.ctx.modelRegistry.catalog.get("strong"), thinkingLevel: "high" } });
 		assert.equal(routed.model.id, "strong"); assert.equal(routed.thinkingLevel, "high");
 		assert.equal(h.calls.length, 1);
-		assert.equal((await h.dispatch("continuation")).model.id, "strong");
+		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
 	});
 	it("fixed retry without state never classifies", async () => {
 		const h = harness(); h.user();
@@ -498,12 +498,32 @@ describe("handoff and branch boundaries T25–T36", () => {
 });
 
 describe("retry and recovery T37–T49", () => {
-	it("retry on same failed model locks handoff, retains thinking and limits", async () => {
-		const h = await initialized({}, 0.8); const seq = h.state.stageSeq;
-		const failed = { model: h.ctx.modelRegistry.catalog.get("strong"), thinkingLevel: "low" };
+	it("same-model adaptive retry preserves an armed handoff; a different model locks it", async () => {
+		const h = await initialized(); const state = h.state; const writes = h.writes;
+		assert.equal(state.handoff, "first-write"); assert.ok(state.handoffEvidence);
+		const retry = await h.dispatch("retry", { failed: { model: h.ctx.modelRegistry.catalog.get("mid") } });
+		assert.equal(retry.model.id, "mid"); assert.equal(h.state, state); assert.equal(h.writes, writes);
+		assert.equal(h.calls.length, 1);
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
+		const other = await initialized();
+		await other.dispatch("retry", { failed: { model: other.ctx.modelRegistry.catalog.get("strong") } });
+		assert.equal(other.state.handoff, "locked");
+		other.add({ role: "toolResult", toolName: "write", isError: false });
+		assert.equal((await other.dispatch("continuation")).model.id, "strong");
+		const down = await initialized({}, 0.8);
+		await down.dispatch("retry", { failed: { model: down.ctx.modelRegistry.catalog.get("mid") } });
+		assert.equal(down.state.handoff, "locked");
+		down.add({ role: "toolResult", toolName: "write", isError: false });
+		assert.equal((await down.dispatch("continuation")).model.id, "mid");
+	});
+	it("retry on same failed model preserves handoff and evidence, thinking and limits", async () => {
+		const h = await initialized(); const state = h.state; const writes = h.writes;
+		const failed = { model: h.ctx.modelRegistry.catalog.get("mid"), thinkingLevel: "low" };
 		const routed = await h.dispatch("retry", { failed });
-		assert.equal(routed.model.id, "strong"); assert.equal(routed.thinkingLevel, "low");
-		assert.equal(h.state.stageSeq, seq); assert.equal(h.state.handoff, "locked");
+		assert.equal(routed.model.id, "mid"); assert.equal(routed.thinkingLevel, "low");
+		assert.equal(h.state, state); assert.equal(h.state.handoff, "first-write"); assert.ok(h.state.handoffEvidence);
+		assert.equal(h.writes, writes);
 		assert.equal(h.calls.length, 1); assert.equal(h.definition.contextWindow, 1000); assert.equal(h.definition.maxTokens, 100);
 	});
 	it("different eligible failed model becomes sticky on continuation", async () => {
@@ -515,7 +535,9 @@ describe("retry and recovery T37–T49", () => {
 	for (const failed of [undefined, { model: { provider: "foreign", id: "strong" } }, { model: { provider: "p", id: "absent" } }, { model: { provider: "p", id: "unconfigured" } }])
 		it("invalid/missing failed falls back to valid state", async () => {
 			const h = await initialized(); h.ctx.modelRegistry.catalog.set("unconfigured", { provider: "p", id: "unconfigured" });
+			const state = h.state; const writes = h.writes;
 			assert.equal((await h.dispatch("retry", { failed })).model.id, "mid"); assert.equal(h.calls.length, 1);
+			assert.equal(h.state, state); assert.equal(h.state.handoff, "first-write"); assert.equal(h.writes, writes);
 		});
 	it("saved upgrade survives downstream failure; retry does not reclassify or add a stage", async () => {
 		const h = await initialized(); h.user(); h.result = choice(1); const route = await h.dispatch();

@@ -214,7 +214,7 @@ The check uses entry ids on the current branch. A write before `stageStartEntryI
 
 A retry does not classify and does not hand off. The retry keeps the failed model when that model is still available on the configured provider. The failed model's id has to match a configured model id, or the id already stored in state. The retry keeps the failed model's thinking level. When those checks fail, the retry uses valid state, an available previous planning model, or `models.standard`.
 
-A retry locks any handoff that is still open. Repeating a retry does not append a second copy of the same state. Pi stores the returned state before it sends the main request. A later model failure does not undo that stored state.
+A retry whose selected model matches the valid state model keeps the handoff state, including when it falls back to that model; a retry onto a different model locks it. Repeating a retry does not append a second copy of the same state. Pi stores the returned state before it sends the main request. A later model failure does not undo that stored state.
 
 `adaptive.decisionTimeoutMs` is the local deadline. The deadline applies to every strategy. When `classifier.timeoutMs` is set, the classifier call uses that value. If the deadline is reached first, a later success or failure is ignored. Caller cancellation or a service abort stops routing and returns no candidate state. A direct request skips classification and saved state. Cancellation still stops that request.
 
