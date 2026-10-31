@@ -33,7 +33,7 @@ cd ~/Workspace/pi-packages/pi-jev-router
 
 git status --short          # must be clean
 git pull                    # stay in sync with origin
-npm pack --dry-run          # name, version, and the 6 files that make up the tarball
+npm pack --dry-run          # name, version, and the 7 files that make up the tarball
 npm version patch           # or minor / major — see below
 git push --follow-tags
 npm publish --access public # no browser prompt once the token above is in place
@@ -114,7 +114,8 @@ a non-zero status.
   when you want to test the released artifact.
 - `publishConfig.access = "public"` is required: scoped packages are private by default.
 - The `pi` key in `package.json` points pi at `./extensions/jev-router.ts`; the `files` array decides
-  what the tarball contains (6 files today, including extensions/lib/diagnostics.ts). Anything outside it is not shipped.
+  what the tarball contains (7 files today, including extensions/lib/diagnostics.ts and both READMEs).
+  Anything outside it is not shipped.
 - `pi-package` must stay in `keywords` for the pi.dev package gallery to pick the package up; the
   gallery is not instant.
 - Users upgrade with `pi update --extensions`.
