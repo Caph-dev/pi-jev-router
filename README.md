@@ -9,16 +9,23 @@
 
 The point is to plan on a strong model and let a cheaper model carry out the plan. The classifier only rates text. It reads no model names and no prices.
 
-```text
-agent-loop request
-├─ first request of a stage           → classify → models.complex, otherwise models.standard
-└─ after an eligible successful write → models.implementation, when handoff is allowed
-
-direct request (compaction, title)
-└─ models.direct → models.implementation → models.standard
+```mermaid
+flowchart TB
+  R["agent-loop request"] --> Q{"request kind"}
+  Q -- "first request of a stage" --> C{"classify: probability reaches threshold?"}
+  C -- "yes" --> CX["models.complex"]
+  C -- "no" --> ST["models.standard"]
+  Q -- "after an eligible successful write, when handoff is allowed" --> IM["models.implementation"]
+  D["direct request (compaction, title)"] --> DR["models.direct → models.implementation → models.standard"]
 ```
 
-Three strategies decide how often the router re-reads the prompt. `adaptive` is the default and re-decides at every user message and compaction. `fixed` classifies once, exchanges the planning model for the implementation model after the first successful write, and keeps it for the rest of the branch. `shadow` logs the upgrade the classifier would have triggered without changing the route.
+Three strategies decide how often the router re-reads the prompt.
+
+| Strategy | Re-decides | Result |
+| --- | --- | --- |
+| `adaptive` (default) | At every user message and every compaction | Picks the complex or standard slot again and re-arms handoff when eligible |
+| `fixed` | On the first user message only | Exchanges the planning model for the implementation model after the first successful write and keeps it for the rest of the branch |
+| `record` | Routes exactly like `fixed` | Logs the upgrade the classifier would have triggered without changing the route |
 
 ## Installation
 
@@ -26,55 +33,61 @@ Three strategies decide how often the router re-reads the prompt. `adaptive` is 
 pi install npm:@caph42/pi-jev-router
 ```
 
-Append `@<version>` to pin one release. To load a checkout without installing it:
-
-```sh
-pi -e ./extensions/jev-router.ts --model jev/auto
-```
-
 Then select **Auto (Jev)** in `/model`, or start pi with `pi --model jev/auto`.
 
-Update with `pi update --extensions`. Load either the checkout or the npm package, not both: loading both registers `jev/auto` twice. Installing the package does not touch an existing `jev-router.json`, though the first start afterwards can, as [Updates](#updates) describes.
+Update with `pi update --extensions`. Installing the package does not touch an existing `jev-router.json`.
 
 ### Requirements
 
-- A pi build that provides virtual models, persistent branch ids and `buildSessionProjection()`. The suite passes against pi 1.4.0; the command is under [Development](#development).
-- Each configured model should appear in `pi --list-models` under `provider`. The defaults are `openai-codex` models: `gpt-6-astra` for complex work, `gpt-6.1-sol` otherwise, and `gpt-6-luna` for implementation.
-- A classifier model of pi's `classifier` type is optional. The default is `typesafe/jev-latest`; see [classifier endpoints](#classifier-endpoints) for adapters. Set `classifier` to `null` or `false` to turn classification off. Under the default `adaptive` strategy, the classifier is what enables upgrades and guarded handoff.
+- pi: it must provide virtual models, persistent branch ids and `buildSessionProjection()`. The suite passes against pi 1.4.0; the command is under [Development](#development).
 - Node 20 or newer, as declared in `engines`. The tests for this release ran on Node 24.15.0.
-
-If the host has no `buildSessionProjection()`, `fixed` and `shadow` send no classifier input and cannot detect a write. They still start on `models.standard` or reuse a previous planning model. `adaptive`, the default, calls the projection API and fails without it.
-
-### Updates
-
-The router keeps `jev-router-state.json` in the pi agent directory (`$PI_CODING_AGENT_DIR` when set) and records the version it last ran there. That file is state, not configuration.
-
-The first start of a new version, including a fresh install, does two things once:
-
-- The highest-precedence configuration file that sets `strategy` to anything other than `adaptive` is rewritten to `adaptive`, and the router prints which file changed. Only that file is touched, and the running process adopts the new value without a restart.
-- When no configuration file sets `provider`, `models`, or `classifier`, the router prints the file to set them in: the personal `jev-router.json`, or the file named by `$JEV_ROUTER_CONFIG`. Any one of the three keys counts as configured, and the reminder stops.
-
-The switch is attempted once per state file, whether or not any file set `strategy`. If you set it back to `fixed` afterwards, later updates leave it alone. The scope is one agent directory, so the first project started under it consumes the switch for every project that shares the directory.
-
-The notice arrives as a UI notification, or on stdout when the host has no UI. It needs the host's `session_start` event; a host without that event loads the router and skips the notice.
-
-Nothing is printed when the version is unchanged. Delete `jev-router-state.json` to repeat both steps on the next start.
+- Models: the defaults are the `openai-codex` models `gpt-6.1-sol` (complex work, `high` thinking level recommended), `gpt-6.1-terra` (everything else), and `gpt-6-luna` (implementation, `max` thinking level recommended). Each configured model should appear in `pi --list-models` under `provider`; the fields and how to change them are under [route fields](#route-fields) and [thinking levels](#thinking-levels).
+- Classifier (optional): a model of pi's `classifier` type, configured inside pi. The default is `typesafe/jev-latest`; adapters, credentials, and how to turn classification off are under [classifier endpoints](#classifier-endpoints).
 
 ## Strategies
 
-The router plans on either `models.complex` or `models.standard`. Before classifying, it reuses an available previous planning model.
+The router plans on either `models.complex` or `models.standard`. Before classifying, it reuses an available previous planning model. The three diagrams below show the main paths under the default config; setting `models.implementation` to `null` or `false` turns handoff off.
 
-`adaptive` is the default. It classifies the first user message, plans on the chosen model, and re-decides at every new user message and every compaction. It upgrades to `models.complex` when the classifier is confident, downgrades to `models.standard` after enough turns in complex, and hands off to `models.implementation` when the work looks cheap and every guarded condition holds.
+### `adaptive` (default)
 
-`fixed` classifies once and hands off to `models.implementation` after the first successful `edit` or `write` in that turn. Later user messages keep the current model, so the rest of the branch runs on the implementation model.
+```mermaid
+flowchart TB
+  B["new user message / compaction boundary"] --> C{"classifier available?"}
+  C -- "no" --> K["keep the current model"]
+  C -- "yes" --> P["complex probability p"]
+  P --> S{"current slot"}
+  S -- "not complex and p reaches threshold" --> UP["upgrade to models.complex"]
+  S -- "complex and p at most downgradeThreshold after minDwellTurns" --> DN["downgrade to models.standard"]
+  S -- "standard and p below threshold" --> W["a successful write in handoffTools"]
+  W --> G{"every guarded condition holds and implementation is on?"}
+  G -- "yes" --> I["hand off to models.implementation"]
+  G -- "no" --> H["stay on models.standard"]
+  S -- "implementation and p below threshold" --> IM2["stay on models.implementation"]
+```
 
-`shadow` routes exactly like `fixed`. It still classifies new user messages and logs the upgrade it would have made.
+### `fixed`
 
-| Strategy | First request | After a successful write | Later user messages |
-| --- | --- | --- | --- |
-| `fixed` | Classify once, or reuse an available previous planning model | Hand off to `models.implementation` | Keep the current model |
-| `adaptive` (default) | Same choice. `handoffPolicy` is `guarded` by default | Hand off when every guarded condition holds | Re-decide at each new user message and compaction. Upgrade when eligible; downgrade subject to `minDwellTurns`; re-arm handoff when eligible |
-| `shadow` | Same route as `fixed` | Same route as `fixed` | Record the upgrade and keep the `fixed` model |
+```mermaid
+flowchart TB
+  A["first user message"] --> C["classify once, or reuse an available previous planning model"]
+  C --> P["plan on models.complex or models.standard"]
+  P --> W{"first successful edit / write of the turn?"}
+  W -- "yes" --> I["hand off to models.implementation for the rest of the branch"]
+  W -- "no" --> H["keep the current model"]
+  N["later user messages"] --> H
+```
+
+### `record`
+
+```mermaid
+flowchart TB
+  A["first user message"] --> P["same route as fixed"]
+  P --> W{"first successful edit / write of the turn?"}
+  W -- "yes" --> I["hand off to models.implementation"]
+  N["later user messages"] --> S{"slot is models.complex?"}
+  S -- "no" --> L["classify and log proposedModel with applied false"]
+  S -- "yes" --> K["keep the current model"]
+```
 
 When the first classification is unavailable, the router selects `models.standard`. When a later classification is unavailable, the router keeps the current model.
 
@@ -112,10 +125,10 @@ Nested objects merge. An array in a later file replaces that array. A missing fi
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `strategy` | `adaptive` | `adaptive` (default), `fixed`, or `shadow` |
+| `strategy` | `adaptive` | `adaptive` (default), `fixed`, or `record`. The old `shadow` value still parses to `record` and prints a warning |
 | `provider` | `openai-codex` | Provider that holds the slot models |
-| `models.complex` | `gpt-6-astra` | Planning model for work the classifier marks complex |
-| `models.standard` | `gpt-6.1-sol` | Planning model otherwise, and the fallback when the first classification is unavailable |
+| `models.complex` | `gpt-6.1-sol` | Planning model for work the classifier marks complex |
+| `models.standard` | `gpt-6.1-terra` | Planning model otherwise, and the fallback when the first classification is unavailable |
 | `models.implementation` | `gpt-6-luna` | Model after handoff. `null` or `false` turns handoff off |
 | `models.direct` | `null` | Model for direct requests. `null` uses `models.implementation`, then `models.standard` |
 | `classifier.provider` | `typesafe` | Classifier provider. `null` or `false` on `classifier` turns classification off |
@@ -162,7 +175,7 @@ Set `threshold` again after you change the classifier, the model, or `classifier
 | `adaptive.historyMaxTurns` | `4` | Earlier complete turns to keep. An integer from 1 to 8 |
 | `adaptive.historyCharLimit` | `8000` | History text limit in UTF-16 code units. An integer from 1 to 32000 |
 
-Handoff fields apply to `adaptive`. `fixed` and `shadow` treat a successful `edit` or `write` as a write, including a successful nested call.
+Handoff fields apply to `adaptive`. `fixed` and `record` treat a successful `edit` or `write` as a write, including a successful nested call.
 
 An empty `adaptive.handoffTools` array turns adaptive handoff off. `bash` and `codemode` are rejected. A successful wrapper tool is not a write. A custom name is valid when success from that tool means the work moved to implementation.
 
@@ -243,13 +256,13 @@ A configuration change, a provider change, or a lost `stageStartEntryId` ends th
 
 `fixed` reads adaptive phase and model state. Setting `strategy` to `fixed` restores fixed handoff. Fixed state records the provider, the handoff lock, and `stageStartEntryId`. State follows resume, compaction, and branch ancestry, and a new session starts with no saved routing state.
 
-## Shadow mode
+## Record mode
 
-`shadow` uses the `fixed` route and classifies the initial prompt. On a later native user entry, while the slot is not `models.complex`, `shadow` reads the same input `adaptive` would use, then keeps the current model or names an upgrade.
+`record` uses the `fixed` route and classifies the initial prompt. On a later native user entry, while the slot is not `models.complex`, `record` reads the same input `adaptive` would use, then keeps the current model or names an upgrade.
 
-stderr carries a line with `proposedModel`, `available`, and `applied` set to false. The line is printed when `debug` is off. When `debug` is on, the debug log carries the same decision. `shadow` keeps the `fixed` model, and the logged model is the upgrade it would have selected. The fields include no quality score and no cost delta.
+stderr carries a line with `proposedModel`, `available`, and `applied` set to false. The line is printed when `debug` is off. When `debug` is on, the debug log carries the same decision. `record` keeps the `fixed` model, and the logged model is the upgrade it would have selected. The fields include no quality score and no cost delta.
 
-The last assessed entry id is stored, so reopening a session does not classify that entry again. A retry and a continuation do not run shadow classification.
+The last assessed entry id is stored, so reopening a session does not classify that entry again. A retry and a continuation do not run record classification.
 
 ## The `/jev-router` command
 
@@ -279,7 +292,20 @@ On pi 1.2.0, `/session` counted only host usage, so direct classifier usage sat 
 
 ### Thinking levels
 
-The routed model is the catalog model that runs the request. Dispatch reads `settings.modelThinkingLevels` for the virtual model, then for the routed model, then uses the request thinking level. A retry that keeps the failed model uses `failed.thinkingLevel` before those keys. pi clamps the level to the routed model. Example keys are `openai-codex/gpt-6-astra` and `jev/auto`.
+The routed model is the catalog model that runs the request. Dispatch reads `settings.modelThinkingLevels` for the virtual model, then for the routed model, then uses the request thinking level. A retry that keeps the failed model uses `failed.thinkingLevel` before those keys. pi clamps the level to the routed model.
+
+Levels are configured per physical model; jev-router has no per-slot thinking field. To give the defaults `high` and `max`, set them in pi's `settings.json`:
+
+```json
+{
+  "modelThinkingLevels": {
+    "openai-codex/gpt-6.1-sol": "high",
+    "openai-codex/gpt-6-luna": "max"
+  }
+}
+```
+
+A key is `provider/model`, for example `openai-codex/gpt-6.1-terra` or the virtual model `jev/auto`.
 
 ## Diagnostics
 
@@ -301,9 +327,9 @@ Diagnostics stay out of the model context. They are not a second billable usage 
 
 By default, classifier input is the projected visible text of the last native user entry. A converted custom message, a summary, or bash output does not replace that source. Images, thinking, and tool data are excluded.
 
-`fixed` and the initial `shadow` classification send a `state.prompt` payload, and `adaptive` sends `state.current`. With no source entry, or with empty projected text, the router does not call the classifier.
+`fixed` and the initial `record` classification send a `state.prompt` payload, and `adaptive` sends `state.current`. With no source entry, or with empty projected text, the router does not call the classifier.
 
-Adaptive classification and later shadow checks always include `state.recentTurns` and `state.historyPartial` alongside the current user text. The removed `adaptive.contextMode` is ignored with a warning. Fixed and initial shadow classification remain unchanged.
+Adaptive classification and later record checks always include `state.recentTurns` and `state.historyPartial` alongside the current user text. The removed `adaptive.contextMode` is ignored with a warning. Fixed and initial record classification remain unchanged.
 
 A previous turn holds native user text and successful assistant text, in time order. Assistant text counts when `stopReason` is `stop` or `toolUse`. The history omits tools, thinking, images, system messages, custom messages, summaries, and failed or aborted responses.
 
@@ -339,7 +365,7 @@ Include the public `SessionManager` cases:
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-Without `PI_ROUTER_HOST_MODULE`, the host cases skip and say so. Against pi 1.4.0 on Node 24.15.0 the suite reports 309 tests in 32 suites. Without the host module, 301 pass and 8 skip; with it, all 309 pass.
+Without `PI_ROUTER_HOST_MODULE`, the host cases skip and say so. Against pi 1.4.0 on Node 24.15.0 the suite reports 313 tests in 32 suites. Without the host module, 305 pass and 8 skip; with it, all 313 pass.
 
 The tests use fixed classifier and catalog fixtures. They check routing and session lifecycle. They do not measure classifier accuracy, production latency, task quality, or cost. Adapter tests supply normalized results through registry mocks, and live sign-in and the wire protocol are outside those tests.
 

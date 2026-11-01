@@ -59,7 +59,7 @@ const EDIT_TOOLS = new Set(["edit", "write"]);
 const ALL_THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 export interface RouterConfig {
-	strategy: "fixed" | "adaptive" | "shadow";
+	strategy: "fixed" | "adaptive" | "record";
 	diagnostics: { record: boolean };
 	adaptive: {
 		handoffTools: string[];
@@ -118,8 +118,8 @@ export const DEFAULT_CONFIG: RouterConfig = {
 	adaptive: { handoffTools: ["edit", "write"], handoffPolicy: "guarded", handoffThreshold: 0.2, maxHandoffContextTokens: 50_000, decisionTimeoutMs: 3000, downgradeThreshold: 0.15, minDwellTurns: 2, historyMaxTurns: 4, historyCharLimit: 8000 },
 	provider: "openai-codex",
 	models: {
-		complex: "gpt-6-astra",
-		standard: "gpt-6.1-sol",
+		complex: "gpt-6.1-sol",
+		standard: "gpt-6.1-terra",
 		implementation: "gpt-6-luna",
 		direct: null,
 	},
@@ -144,7 +144,14 @@ interface RouterState {
 	provider?: string;
 	handoff?: "first-write" | "locked";
 	stageStartEntryId?: string | null;
-	shadow?: { lastEvaluatedUserEntryId: string | null; configKey: string };
+	record?: RecordState;
+	/** Pre-2.0 name for `record`, still read from sessions saved by older versions. */
+	shadow?: RecordState;
+}
+
+interface RecordState {
+	lastEvaluatedUserEntryId: string | null;
+	configKey: string;
 }
 
 interface AdaptiveState extends RouterState {
@@ -660,6 +667,17 @@ function enumField<T extends string>(value: unknown, path: string, key: string, 
 	return value as T;
 }
 
+const STRATEGIES = ["fixed", "adaptive", "record"] as const;
+
+/** `shadow` is the pre-2.0 name for `record`; it keeps parsing so existing files stay valid. */
+function strategyField(value: unknown, path: string): RouterConfig["strategy"] | undefined {
+	if (value === "shadow") {
+		warn(`${path}: "strategy" value "shadow" is now "record"; change it to silence this warning`);
+		return "record";
+	}
+	return enumField(value, path, "strategy", STRATEGIES);
+}
+
 function integerField(value: unknown, path: string, key: string, max: number): number | undefined {
 	if (value === undefined) return undefined;
 	if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > max) fail(`${path}: "${key}" must be an integer between 1 and ${max}`);
@@ -718,7 +736,7 @@ function mergeConfig(base: RouterConfig, path: string): { config: RouterConfig; 
 	warnUnknownKeys(models, path, "models", MODEL_KEYS);
 	warnUnknownKeys(virtual, path, "virtual", VIRTUAL_KEYS);
 
-	const strategy = enumField(patch.strategy, path, "strategy", ["fixed", "adaptive", "shadow"] as const) ?? base.strategy;
+	const strategy = strategyField(patch.strategy, path) ?? base.strategy;
 	if (patch.adaptive !== undefined && (patch.adaptive === null || typeof patch.adaptive !== "object" || Array.isArray(patch.adaptive)))
 		fail(`${path}: "adaptive" must be an object`);
 	if (patch.diagnostics !== undefined && (patch.diagnostics === null || typeof patch.diagnostics !== "object" || Array.isArray(patch.diagnostics)))
@@ -915,7 +933,7 @@ export default function (pi: ExtensionAPI) {
 			let classifierDurationMs = 0;
 			let classifierApi: string | null = null;
 			let probability: number | undefined;
-			let shadow: { proposedModel: { provider: string; id: string }; applied: false; available: boolean } | undefined;
+			let record: { proposedModel: { provider: string; id: string }; applied: false; available: boolean } | undefined;
 			let usage: ClassifierUsage | undefined;
 			const observe = (result: ComplexityResult) => {
 				classifierStatus = result.kind === "unavailable" ? result.reason : result.kind;
@@ -958,9 +976,9 @@ export default function (pi: ExtensionAPI) {
 					requestReason: request.reason, stageSeq: state && "stageSeq" in state ? state.stageSeq : null,
 					from, to: id, decisionReason, classifierStatus, classifierApi, probability, classifierDurationMs,
 					switched: from !== null && (from !== id || fromProvider !== config.provider), ...(usage ? { usage } : {}),
-					...(shadow ? { shadow } : {}) };
+					...(record ? { record } : {}) };
 				log(JSON.stringify(decision));
-				if (shadow && !debug) { try { console.error("[pi-jev-router] " + JSON.stringify(decision)); } catch { diagnosticFailure(); } }
+				if (record && !debug) { try { console.error("[pi-jev-router] " + JSON.stringify(decision)); } catch { diagnosticFailure(); } }
 				request.signal?.throwIfAborted();
 				recordDecision(ctx, { ...decision, from: from ? { provider: fromProvider, id: from } : null,
 					to: { provider: config.provider, id }, requestedThinkingLevel: thinkingLevel,
@@ -1108,10 +1126,12 @@ export default function (pi: ExtensionAPI) {
 			let state = request.state;
 			if (state && (!["planning", "implementation"].includes(state.phase) || typeof state.model !== "string" || !state.model))
 				fail("invalid fixed state; start a new session");
+			// Sessions saved before the 2.0 rename carry the old key; adopt it once, then write `record`.
+			if (state && state.record === undefined && state.shadow) state = { ...state, record: state.shadow, shadow: undefined };
 			const fixedState = (id: string, phase: RouterState["phase"], handoff: "locked" | "first-write"): RouterState =>
 				({ model: id, phase, provider: config.provider, handoff, stageStartEntryId: leaf,
-					...(state?.shadow ? { shadow: state.shadow } : {}) });
-			const shadowKey = configIdentity(config);
+					...(state?.record ? { record: state.record } : {}) });
+			const recordKey = configIdentity(config);
 			const recovered = state && ((state.provider !== undefined && state.provider !== config.provider) || !exists(state.model));
 			if (recovered) state = fixedState(config.models.standard, "planning", "locked");
 			if (request.reason === "retry") {
@@ -1134,18 +1154,18 @@ export default function (pi: ExtensionAPI) {
 				}
 				id ??= config.models.standard;
 				const next = fixedState(id, "planning", request.reason === "user" ? "first-write" : "locked");
-				if (config.strategy === "shadow") next.shadow = { lastEvaluatedUserEntryId: user?.id ?? null, configKey: shadowKey };
+				if (config.strategy === "record") next.record = { lastEvaluatedUserEntryId: user?.id ?? null, configKey: recordKey };
 				return route(id, next);
 			}
-			if (config.strategy === "shadow" && request.reason === "user" && user &&
-				(state.shadow?.lastEvaluatedUserEntryId !== user.id || state.shadow.configKey !== shadowKey)) {
+			if (config.strategy === "record" && request.reason === "user" && user &&
+				(state.record?.lastEvaluatedUserEntryId !== user.id || state.record.configKey !== recordKey)) {
 				if (state.model !== config.models.complex) {
 					const result = observe(await classifyComplexity(pi, request, ctx, config, buildClassifierInput(config, projection!, branch, user)));
 					const id = result.kind === "classified" && result.probability >= config.threshold ? config.models.complex : state.model;
-					shadow = { proposedModel: { provider: config.provider, id }, applied: false, available: exists(id) };
-					decisionReason = id !== state.model ? "shadow-upgrade" : "shadow-hold";
+					record = { proposedModel: { provider: config.provider, id }, applied: false, available: exists(id) };
+					decisionReason = id !== state.model ? "record-upgrade" : "record-hold";
 				}
-				state = { ...state, shadow: { lastEvaluatedUserEntryId: user.id, configKey: shadowKey } };
+				state = { ...state, record: { lastEvaluatedUserEntryId: user.id, configKey: recordKey } };
 				return route(state.model, state);
 			}
 			// Fixed keeps the original two-phase policy, with native boundaries and sticky retries.

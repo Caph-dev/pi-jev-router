@@ -99,7 +99,7 @@ describe("missing models", () => {
 			(error: unknown) => {
 				assert.ok(error instanceof Error);
 				// No classifier and no models: the router falls back to the standard model, per the README.
-				assert.match(error.message, /openai-codex\/gpt-6\.1-sol is not in the catalog/);
+				assert.match(error.message, /openai-codex\/gpt-6\.1-terra is not in the catalog/);
 				assert.match(error.message, /pi --list-models/);
 				assert.ok(error.message.includes(join(agentDir, "jev-router.json")), error.message);
 				assert.match(error.message, /\$JEV_ROUTER_CONFIG/);
@@ -597,9 +597,9 @@ describe("retry and recovery T37–T49", () => {
 	});
 });
 
-describe("shadow observations", () => {
+describe("record observations", () => {
 	it("follows fixed routes while assessing each new native user once", async () => {
-		const h = harness({ strategy: "shadow" }); h.user(); h.result = choice(0.1);
+		const h = harness({ strategy: "record" }); h.user(); h.result = choice(0.1);
 		assert.equal((await h.dispatch()).model.id, "mid");
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
@@ -608,17 +608,31 @@ describe("shadow observations", () => {
 		await h.dispatch(); await h.dispatch("retry"); assert.equal(h.calls.length, 2);
 		assert.equal(h.writes, writes); assert.equal(h.state.model, "cheap");
 	});
-	it("later shadow classification includes recent history and partial status", async () => {
-		const h = harness({ strategy: "shadow" }); h.user("first"); h.result = choice(0.1); await h.dispatch();
+	it("later record classification includes recent history and partial status", async () => {
+		const h = harness({ strategy: "record" }); h.user("first"); h.result = choice(0.1); await h.dispatch();
 		h.add({ role: "assistant", stopReason: "stop", content: [{ type: "text", text: "answer" }] });
 		h.branch.push({ type: "context_edit", id: "edit" }); h.user("next"); await h.dispatch();
 		assert.deepEqual(h.calls[1][1].state, { current: "next", recentTurns: [{ user: "first", assistant: ["answer"] }], historyPartial: true });
 	});
-	it("shadow cancellation does not consume a new user", async () => {
-		const h = harness({ strategy: "shadow" }); h.user(); h.result = choice(0.1); await h.dispatch();
+	it("record cancellation does not consume a new user", async () => {
+		const h = harness({ strategy: "record" }); h.user(); h.result = choice(0.1); await h.dispatch();
 		h.user("next"); const state = h.state; h.result = { stopReason: "aborted" };
 		await assert.rejects(() => h.dispatch(), { name: "AbortError" }); assert.equal(h.state, state);
 		h.result = choice(1); await h.dispatch(); assert.equal(h.calls.length, 3); assert.equal(h.state.model, "mid");
+	});
+	it("reads the pre-2.0 shadow state key instead of assessing the same entry twice", async () => {
+		const h = harness({ strategy: "record" }); h.user(); h.result = choice(0.1); await h.dispatch();
+		const saved = h.state;
+		h.state = { ...saved, record: undefined, shadow: saved.record };
+		assert.equal((await h.dispatch()).model.id, "mid");
+		assert.equal(h.calls.length, 1, "the adopted entry must not be classified twice");
+	});
+	it("prefers a stored record state over a stale shadow key after a JSON round trip", async () => {
+		const h = harness({ strategy: "record" }); h.user(); h.result = choice(0.1); await h.dispatch();
+		const saved = h.state;
+		h.state = JSON.parse(JSON.stringify({ ...saved, shadow: { lastEvaluatedUserEntryId: null, configKey: "stale" } }));
+		assert.equal((await h.dispatch()).model.id, "mid");
+		assert.equal(h.calls.length, 1, "a stored record state must win over the legacy key");
 	});
 });
 

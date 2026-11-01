@@ -1,7 +1,7 @@
 {
   "name": "@caph42/pi-jev-router",
   "version": "2.0.0",
-  "description": "Jev virtual model routing for pi with fixed, guarded adaptive and shadow strategies.",
+  "description": "Jev virtual model routing for pi with fixed, guarded adaptive and record strategies.",
   "keywords": [
     "pi-package",
     "pi",

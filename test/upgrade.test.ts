@@ -171,7 +171,7 @@ describe("post-update setup notice", () => {
 		const cwd = tempDir();
 		process.env[AGENT_ENV] = agentDir;
 		delete process.env[CONFIG_ENV];
-		const personal = writeConfig(agentDir, { strategy: "shadow", provider: "p" });
+		const personal = writeConfig(agentDir, { strategy: "record", provider: "p" });
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
 		const project = join(cwd, ".pi", "jev-router.json");
 		writeFileSync(project, JSON.stringify({ strategy: "fixed" }, null, 2) + "\n");
@@ -185,7 +185,7 @@ describe("post-update setup notice", () => {
 		}
 
 		assert.equal(JSON.parse(readFileSync(project, "utf-8")).strategy, "adaptive");
-		assert.equal(JSON.parse(readFileSync(personal, "utf-8")).strategy, "shadow");
+		assert.equal(JSON.parse(readFileSync(personal, "utf-8")).strategy, "record");
 	});
 
 	it("falls back to a lower-precedence file when the higher one sets no strategy", () => {

@@ -304,11 +304,19 @@ describe("adaptive M1 configuration", () => {
 });
 
 describe("final routing configuration", () => {
-	it("accepts shadow, guarded overrides and diagnostic recording", () => {
-		const { config } = load(write(tempDir(), { strategy: "shadow", diagnostics: { record: true }, adaptive: { handoffPolicy: "first-write", handoffThreshold: 0, maxHandoffContextTokens: 123 } }));
-		assert.equal(config.strategy, "shadow"); assert.equal(config.diagnostics.record, true);
+	it("accepts record, guarded overrides and diagnostic recording", () => {
+		const { config } = load(write(tempDir(), { strategy: "record", diagnostics: { record: true }, adaptive: { handoffPolicy: "first-write", handoffThreshold: 0, maxHandoffContextTokens: 123 } }));
+		assert.equal(config.strategy, "record"); assert.equal(config.diagnostics.record, true);
 		assert.equal(config.adaptive.handoffPolicy, "first-write"); assert.equal(config.adaptive.handoffThreshold, 0);
 		assert.equal(config.adaptive.maxHandoffContextTokens, 123);
+	});
+	it("maps the removed shadow strategy to record and says so", () => {
+		const messages = captureWarnings();
+		assert.equal(load(write(tempDir(), { strategy: "shadow" })).config.strategy, "record");
+		assert.deepEqual(reasons(messages), ['"strategy" value "shadow" is now "record"; change it to silence this warning']);
+	});
+	it("still rejects an unknown strategy", () => {
+		assertFails(/strategy/, write(tempDir(), { strategy: "shadowy" }));
 	});
 	for (const [key, values] of [["handoffPolicy", [null, "other"]], ["handoffThreshold", [null, -1, 1.1, "0.2"]], ["maxHandoffContextTokens", [null, 0, 1.1, "50000"]]] as const)
 		for (const value of values) it("rejects " + key + "=" + JSON.stringify(value), () => {

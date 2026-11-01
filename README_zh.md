@@ -9,16 +9,23 @@
 
 目的是让强模型负责规划，让便宜的模型按规划干活。分类器只评估文本，不读取模型名和价格。
 
-```text
-agent 循环请求
-├─ 一个新阶段的第一个请求      → 分类 → models.complex，否则 models.standard
-└─ 一次符合条件的成功写入之后  → 允许交接时进入 models.implementation
-
-直接请求（压缩、标题）
-└─ models.direct → models.implementation → models.standard
+```mermaid
+flowchart TB
+  R["agent 循环里的请求"] --> Q{"请求类型"}
+  Q -- "一个新阶段的第一个请求" --> C{"分类：概率 ≥ threshold?"}
+  C -- "是" --> CX["models.complex"]
+  C -- "否" --> ST["models.standard"]
+  Q -- "一次符合条件的成功写入之后（允许交接时）" --> IM["models.implementation"]
+  D["直接请求（压缩、标题）"] --> DR["models.direct → models.implementation → models.standard"]
 ```
 
-三种策略决定路由器多久重新看一次输入。`adaptive` 是默认策略，在每个用户消息和每次压缩后重新判定。`fixed` 只分类一次，在第一次成功写入后换成实现模型，并把它用到分支结束。`shadow` 记录分类器本会触发的升级但不改变路由。
+三种策略决定路由器多久重新看一次输入。
+
+| 策略 | 何时重新判定 | 结果 |
+| --- | --- | --- |
+| `adaptive`（默认） | 每条用户消息和每次压缩之后 | 重新判定复杂档，符合条件时允许交接 |
+| `fixed` | 只在第一条用户消息 | 第一次成功写入后换成实现模型，用到分支结束 |
+| `record` | 路由与 `fixed` 相同 | 额外的分类只记录本会发生的升级，不改变路由 |
 
 ## 安装
 
@@ -26,55 +33,61 @@ agent 循环请求
 pi install npm:@caph42/pi-jev-router
 ```
 
-在包名后加 `@<version>` 可以锁定某个版本。不安装、直接加载本地检出：
-
-```sh
-pi -e ./extensions/jev-router.ts --model jev/auto
-```
-
 然后在 `/model` 里选择 **Auto (Jev)**，或者用 `pi --model jev/auto` 启动 pi。
 
-升级用 `pi update --extensions`。本地检出和 npm 包只加载一个，两个同时加载会注册两次 `jev/auto`。安装包本身不会改动已有的 `jev-router.json`，但之后的第一次启动可能会，见[更新之后](#更新之后)。
+升级用 `pi update --extensions`。安装包不会改动已有的 `jev-router.json`。
 
 ### 环境要求
 
-- pi 需要提供虚拟模型、持久分支 id 和 `buildSessionProjection()`。本仓库的测试套件在 pi 1.4.0 上通过，命令见[开发](#开发)。
-- 每个配置的模型都应该能在 `pi --list-models` 里按 `provider` 找到。默认是 `openai-codex` 的三个模型：复杂任务用 `gpt-6-astra`，其余用 `gpt-6.1-sol`，实现阶段用 `gpt-6-luna`。
-- 分类器不是必需的。它必须是一个 pi 类型为 `classifier` 的模型，默认 `typesafe/jev-latest`；适配器见[分类器端点](#分类器端点)。把 `classifier` 设为 `null` 或 `false` 可以关闭分类。在默认的 `adaptive` 策略下，升级和守卫式交接依赖分类器。
+- pi：需要提供虚拟模型、持久分支 id 和 `buildSessionProjection()`。本仓库的测试套件在 pi 1.4.0 上通过，命令见[开发](#开发)。
 - Node 20 或更新，与 `engines` 字段一致。本版本的测试跑在 Node 24.15.0 上。
-
-宿主没有 `buildSessionProjection()` 时，`fixed` 和 `shadow` 不发送分类输入，也检测不到写入。它们仍会用 `models.standard` 起步，或复用之前的规划模型。默认的 `adaptive` 会调用投影接口，缺少该接口时直接报错。
-
-### 更新之后
-
-路由器在 pi agent 目录（设置了 `PI_CODING_AGENT_DIR` 时就是该目录）下保留 `jev-router-state.json`，把上次运行的版本记在里面。这个文件是状态，不是配置。
-
-新版本的第一次启动，包括全新安装，会做一次下面两件事：
-
-- 优先级最高的那个把 `strategy` 设成 `adaptive` 以外的值的配置文件会被改成 `adaptive`，路由器打印改了哪个文件。只动这一个文件，当前进程不需要重启就按新值路由。
-- 没有任何配置文件设置 `provider`、`models` 或 `classifier` 时，路由器打印该写哪个文件：个人的 `jev-router.json`，或 `$JEV_ROUTER_CONFIG` 指向的文件。这三项里设置任意一项就算已配置，提醒随之消失。
-
-每次状态文件只尝试切换一次，无论有没有文件设置过 `strategy`。你之后把它设回 `fixed`，后续更新不会再动它。作用域是一个 agent 目录，所以在这个目录下第一个启动的项目就会用掉这次切换，同目录的其他项目共享这个结果。
-
-宿主有 UI 时通知走界面，没有 UI 时写到 stdout。通知依赖宿主的 `session_start` 事件；没有该事件的宿主照常加载路由器，只是不发通知。
-
-版本没变时什么都不打印。删掉 `jev-router-state.json`，下次启动会重跑这两步。
+- 模型：默认是 `openai-codex` 的 `gpt-6.1-sol`（复杂任务，建议 `high` 思考强度）、`gpt-6.1-terra`（其余情况）和 `gpt-6-luna`（实现阶段，建议 `max` 思考强度）。每个配置的模型都应能在 `pi --list-models` 里按 `provider` 找到，字段与改法见[路由字段](#路由字段)与[思考强度](#思考强度)。
+- 分类器（可选）：在 pi 内配置一个类型为 `classifier` 的模型，默认 `typesafe/jev-latest`。适配器、凭据和关闭方式见[分类器端点](#分类器端点)。
 
 ## 策略
 
-规划阶段落在 `models.complex` 或 `models.standard` 上。分类之前，路由器会先复用可用的上一规划模型。
+规划阶段落在 `models.complex` 或 `models.standard` 上。分类之前，路由器会先复用可用的上一规划模型。下面三张图是默认配置下的主要路径；`models.implementation` 设为 `null` 或 `false` 时没有交接。
 
-`adaptive` 是默认策略。它分类第一条用户消息，在选中的模型上规划，然后在每个新用户消息和每次压缩后重新判定。分类器有把握时升级到 `models.complex`；在复杂档停留够久后降级到 `models.standard`；新任务看起来便宜且守卫条件全部成立时，交接给 `models.implementation`。
+### `adaptive`（默认）
 
-`fixed` 只分类一次，并在本回合第一次成功 `edit` 或 `write` 之后交接给 `models.implementation`。之后的用户消息保持当前模型，所以分支余下的部分都跑在实现模型上。
+```mermaid
+flowchart TB
+  B["新的用户消息 / 压缩边界"] --> C{"分类器可用?"}
+  C -- "否" --> K["保持当前模型"]
+  C -- "是" --> P["得到 complex 概率 p"]
+  P --> S{"当前槽位"}
+  S -- "非 complex 且 p 达到 threshold" --> UP["升级到 models.complex"]
+  S -- "complex 且 p 不高于 downgradeThreshold 且驻留 minDwellTurns 轮以上" --> DN["降级到 models.standard"]
+  S -- "standard 且 p 低于 threshold" --> W["handoffTools 里一次成功写入"]
+  W --> G{"守卫条件全部成立且 implementation 未关闭?"}
+  G -- "是" --> I["交接 models.implementation"]
+  G -- "否" --> H["留在 models.standard"]
+  S -- "implementation 且 p 低于 threshold" --> IM2["留在 models.implementation"]
+```
 
-`shadow` 的路由与 `fixed` 完全相同。它照样分类新的用户消息，并记录下本会做出的升级。
+### `fixed`
 
-| 策略 | 首个请求 | 成功写入之后 | 之后的用户消息 |
-| --- | --- | --- | --- |
-| `fixed` | 分类一次，或复用可用的上一规划模型 | 交接给 `models.implementation` | 保持当前模型 |
-| `adaptive`（默认） | 同样的选择。`handoffPolicy` 默认是 `guarded` | 守卫条件全部成立时交接 | 每个新用户消息和每次压缩后重新判定。符合条件时升级；降级受 `minDwellTurns` 限制；符合条件时重新启用交接 |
-| `shadow` | 与 `fixed` 相同的路由 | 与 `fixed` 相同的路由 | 记录这次升级，保持 `fixed` 的模型 |
+```mermaid
+flowchart TB
+  A["第一条用户消息"] --> C["分类一次，或复用可用的上一规划模型"]
+  C --> P["在 models.complex 或 models.standard 上规划"]
+  P --> W{"本回合第一次成功 edit / write?"}
+  W -- "是，且 models.implementation 未关闭" --> I["交接 models.implementation，用到分支结束"]
+  W -- "否" --> H["保持当前模型"]
+  N["之后的用户消息"] --> H
+```
+
+### `record`
+
+```mermaid
+flowchart TB
+  A["第一条用户消息"] --> P["与 fixed 相同的路由"]
+  P --> W{"本回合第一次成功 edit / write?"}
+  W -- "是，且 models.implementation 未关闭" --> I["交接 models.implementation"]
+  N["之后的用户消息"] --> S{"当前是 models.complex 槽位?"}
+  S -- "否" --> L["分类并记录 proposedModel，applied 恒为 false"]
+  S -- "是" --> K["保持当前模型"]
+```
 
 第一次分类不可用时，路由器选择 `models.standard`。之后的分类不可用时，路由器保持当前模型。
 
@@ -112,10 +125,10 @@ pi 读取下表中的文件。
 
 | 字段 | 默认值 | 含义 |
 | --- | --- | --- |
-| `strategy` | `adaptive` | `adaptive`（默认）、`fixed` 或 `shadow` |
+| `strategy` | `adaptive` | `adaptive`（默认）、`fixed` 或 `record`。旧值 `shadow` 仍可解析，解析为 `record` 并打印警告 |
 | `provider` | `openai-codex` | 存放各槽位模型的 provider |
-| `models.complex` | `gpt-6-astra` | 分类器判定为复杂时的规划模型 |
-| `models.standard` | `gpt-6.1-sol` | 其余情况的规划模型，也是第一次分类不可用时的兜底 |
+| `models.complex` | `gpt-6.1-sol` | 分类器判定为复杂时的规划模型 |
+| `models.standard` | `gpt-6.1-terra` | 其余情况的规划模型，也是第一次分类不可用时的兜底 |
 | `models.implementation` | `gpt-6-luna` | 交接之后的模型。`null` 或 `false` 关闭交接 |
 | `models.direct` | `null` | 直接请求用的模型。`null` 时先用 `models.implementation`，再用 `models.standard` |
 | `classifier.provider` | `typesafe` | 分类器 provider。`classifier` 设为 `null` 或 `false` 关闭分类 |
@@ -162,7 +175,7 @@ pi 读取下表中的文件。
 | `adaptive.historyMaxTurns` | `4` | 保留的较早完整轮数，1 到 8 的整数 |
 | `adaptive.historyCharLimit` | `8000` | 历史文本上限，单位是 UTF-16 code unit，1 到 32000 的整数 |
 
-交接相关字段只对 `adaptive` 生效。`fixed` 和 `shadow` 把一次成功的 `edit` 或 `write` 视为写入，包括成功的嵌套调用。
+交接相关字段只对 `adaptive` 生效。`fixed` 和 `record` 把一次成功的 `edit` 或 `write` 视为写入，包括成功的嵌套调用。
 
 `adaptive.handoffTools` 设为空数组会关闭 adaptive 交接。`bash` 和 `codemode` 会被拒绝。成功的包装工具不算写入；自定义工具名有效的前提是该工具成功就代表工作进入了实现阶段。
 
@@ -243,13 +256,13 @@ Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v3"`。�
 
 `fixed` 能读取 adaptive 的阶段与模型状态。把 `strategy` 设为 `fixed` 会恢复 fixed 交接。Fixed 状态记录 provider、交接锁和 `stageStartEntryId`。状态跟随 resume、压缩和分支继承，新会话不带保存的路由状态。
 
-## Shadow 模式
+## Record 模式
 
-`shadow` 使用 `fixed` 的路由，并分类初始输入。之后的原生用户条目上，只要槽位不是 `models.complex`，`shadow` 就读取 `adaptive` 会用的那份输入，然后保持当前模型或给出一个升级建议。
+`record` 使用 `fixed` 的路由，并分类初始输入。之后的原生用户条目上，只要槽位不是 `models.complex`，`record` 就读取 `adaptive` 会用的那份输入，然后保持当前模型或给出一个升级建议。
 
-`debug` 关闭时，stderr 上打印一行，包含 `proposedModel`、`available` 和恒为 false 的 `applied`。`debug` 打开时，同一份决策写进调试日志。`shadow` 保持 `fixed` 的模型，日志里的模型是它本会选中的升级目标。这些字段不含质量评分，也不含费用差额。
+`debug` 关闭时，stderr 上打印一行，包含 `proposedModel`、`available` 和恒为 false 的 `applied`。`debug` 打开时，同一份决策写进调试日志。`record` 保持 `fixed` 的模型，日志里的模型是它本会选中的升级目标。这些字段不含质量评分，也不含费用差额。
 
-最后评估过的条目 id 会被保存，重新打开会话不会重复分类该条目。重试和 continuation 不运行 shadow 分类。
+最后评估过的条目 id 会被保存，重新打开会话不会重复分类该条目。重试和 continuation 不运行 record 分类。
 
 ## `/jev-router` 命令
 
@@ -279,7 +292,20 @@ pi 1.2.0 上的 `/session` 只统计宿主自己的用量，所以直接请求�
 
 ### 思考强度
 
-实际执行请求的是目录里被路由到的那个模型。分发时依次读取 `settings.modelThinkingLevels` 里虚拟模型的键、被路由模型的键，最后用请求自带的强度。保留失败模型的重试使用 `failed.thinkingLevel`，优先于这些键。pi 会把强度夹到被路由模型支持的范围内。键的示例是 `openai-codex/gpt-6-astra` 和 `jev/auto`。
+实际执行请求的是目录里被路由到的那个模型。分发时依次读取 `settings.modelThinkingLevels` 里虚拟模型的键、被路由模型的键，最后用请求自带的强度。保留失败模型的重试使用 `failed.thinkingLevel`，优先于这些键。pi 会把强度夹到被路由模型支持的范围内。
+
+强度按物理模型配置，jev-router 的配置里没有按槽位设强度的字段。给默认模型配 `high` 与 `max` 时，在 pi 的 `settings.json` 里写：
+
+```json
+{
+  "modelThinkingLevels": {
+    "openai-codex/gpt-6.1-sol": "high",
+    "openai-codex/gpt-6-luna": "max"
+  }
+}
+```
+
+键的格式是 `provider/model`，例如 `openai-codex/gpt-6.1-terra` 或虚拟模型 `jev/auto`。
 
 ## 诊断
 
@@ -301,9 +327,9 @@ pi 1.2.0 上的 `/session` 只统计宿主自己的用量，所以直接请求�
 
 默认情况下，分类器输入是最后一个原生用户条目投影后的可见文本。转换过的自定义消息、摘要或 bash 输出都不会替换这个来源。图片、思考和工具数据被排除。
 
-`fixed` 和首次 `shadow` 分类发送 `state.prompt`，`adaptive` 发送 `state.current`。找不到来源条目或投影文本为空时，路由器不调用分类器。
+`fixed` 和首次 `record` 分类发送 `state.prompt`，`adaptive` 发送 `state.current`。找不到来源条目或投影文本为空时，路由器不调用分类器。
 
-Adaptive 分类和之后的 shadow 检查总是在当前用户文本之外带上 `state.recentTurns` 和 `state.historyPartial`。已移除的 `adaptive.contextMode` 会被忽略并打印警告。Fixed 和首次 shadow 分类的行为不变。
+Adaptive 分类和之后的 record 检查总是在当前用户文本之外带上 `state.recentTurns` 和 `state.historyPartial`。已移除的 `adaptive.contextMode` 会被忽略并打印警告。Fixed 和首次 record 分类的行为不变。
 
 一个历史轮次包含原生用户文本和成功的助手文本，按时间排序。助手文本在 `stopReason` 为 `stop` 或 `toolUse` 时计入。历史里不含工具、思考、图片、系统消息、自定义消息、摘要，以及失败或中止的响应。
 
@@ -339,7 +365,7 @@ npm test
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-不设置 `PI_ROUTER_HOST_MODULE` 时宿主用例会跳过并说明原因。在 pi 1.4.0 和 Node 24.15.0 上，套件总共报告 32 个套件、309 个测试。不带宿主模块时 301 个通过、8 个跳过，带上时 309 个全部通过。
+不设置 `PI_ROUTER_HOST_MODULE` 时宿主用例会跳过并说明原因。在 pi 1.4.0 和 Node 24.15.0 上，套件总共报告 32 个套件、313 个测试。不带宿主模块时 305 个通过、8 个跳过，带上时 313 个全部通过。
 
 测试使用固定的分类器与目录夹具，检查路由和会话生命周期。它们不衡量分类器准确率、生产时延、任务质量或费用。适配器测试通过注册表替身提供归一化结果，真实登录和线上协议不在这些测试范围内。
 

@@ -14,8 +14,8 @@
   },
   "provider": "openai-codex",
   "models": {
-    "complex": "gpt-6-astra",
-    "standard": "gpt-6.1-sol",
+    "complex": "gpt-6.1-sol",
+    "standard": "gpt-6.1-terra",
     "implementation": "gpt-6-luna",
     "direct": null
   },

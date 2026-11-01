@@ -70,12 +70,12 @@ describe("decision/outcome diagnostics", () => {
 			assert.equal(h.entries.filter(e => e.customType === "pi-jev-router.outcome").length, 0);
 		}
 	});
-	it("shadow persists an unapplied upgrade proposal", async () => {
-		const h = setup("shadow", { diagnostics: { record: true } }); h.user(); await h.dispatch();
+	it("record persists an unapplied upgrade proposal", async () => {
+		const h = setup("record", { diagnostics: { record: true } }); h.user(); await h.dispatch();
 		h.user("next"); h.result = { ...answer, answers: { complexity: { type: "choice", probabilities: { complex: 1 } } } };
 		assert.equal((await h.dispatch()).model.id, "mid");
 		const decision = h.entries.findLast(e => e.customType === "pi-jev-router.decision").data;
-		assert.deepEqual(decision.shadow, { proposedModel: { provider: "p", id: "strong" }, applied: false, available: true });
+		assert.deepEqual(decision.record, { proposedModel: { provider: "p", id: "strong" }, applied: false, available: true });
 	});
 });
 
@@ -218,7 +218,7 @@ describe("jev-router command surface", () => {
 		await commands.get("jev-router").handler("status", { hasUI: true, ui: { notify: (text: string) => notices.push(text) } });
 		assert.match(notices.at(-1)!, /\nconfig: built-in defaults \(no file read; expected /);
 		assert.match(notices.at(-1)!, /\nstrategy: adaptive\n/);
-		assert.match(notices.at(-1)!, /\nplanning: openai-codex\/gpt-6-astra \(complex\), openai-codex\/gpt-6\.1-sol \(standard\)\n/);
+		assert.match(notices.at(-1)!, /\nplanning: openai-codex\/gpt-6\.1-sol \(complex\), openai-codex\/gpt-6\.1-terra \(standard\)\n/);
 	});
 	it("rejects extra or unknown arguments without calling a model", async () => {
 		const h = setup();
