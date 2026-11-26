@@ -39,7 +39,7 @@ Update with `pi update --extensions`. Installing the package does not touch an e
 
 ### Requirements
 
-- pi: it must provide virtual models, persistent branch ids and `buildSessionProjection()`. The suite passes against pi 1.4.0; the command is under [Development](#development).
+- pi: it must provide virtual models, persistent branch ids and `buildSessionProjection()`. The suite passes against pi 1.6.1; the command is under [Development](#development).
 - Node 20 or newer, as declared in `engines`. The tests for this release ran on Node 24.15.0.
 - Models: the defaults are the `openai-codex` models `gpt-6.1-sol` (complex work, `high` thinking level recommended), `gpt-6.1-terra` (everything else), and `gpt-6-luna` (implementation, `max` thinking level recommended). Each configured model should appear in `pi --list-models` under `provider`; the fields and how to change them are under [route fields](#route-fields) and [thinking levels](#thinking-levels).
 - Classifier (optional): a model of pi's `classifier` type, configured inside pi. The default is `typesafe/jev-latest`; adapters, credentials, and how to turn classification off are under [classifier endpoints](#classifier-endpoints).
@@ -366,7 +366,7 @@ Include the public `SessionManager` cases:
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-Without `PI_ROUTER_HOST_MODULE`, the host cases skip and say so. Against pi 1.4.0 on Node 24.15.0 the suite reports 313 tests in 32 suites. Without the host module, 305 pass and 8 skip; with it, all 313 pass.
+On Node 24.15.0, `npm test` reports 322 passes and 9 skipped host cases. With `PI_ROUTER_HOST_MODULE` pointing to the pi 1.6.1 public entry point, all 331 tests pass.
 
 The tests use fixed classifier and catalog fixtures. They check routing and session lifecycle. They do not measure classifier accuracy, production latency, task quality, or cost. Adapter tests supply normalized results through registry mocks, and live sign-in and the wire protocol are outside those tests.
 

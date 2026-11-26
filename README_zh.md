@@ -39,7 +39,7 @@ pi install npm:@caph42/pi-jev-router
 
 ### 环境要求
 
-- pi：需要提供虚拟模型、持久分支 id 和 `buildSessionProjection()`。本仓库的测试套件在 pi 1.4.0 上通过，命令见[开发](#开发)。
+- pi：需要提供虚拟模型、持久分支 id 和 `buildSessionProjection()`。本仓库的测试套件在 pi 1.6.1 上通过，命令见[开发](#开发)。
 - Node 20 或更新，与 `engines` 字段一致。本版本的测试跑在 Node 24.15.0 上。
 - 模型：默认是 `openai-codex` 的 `gpt-6.1-sol`（复杂任务，建议 `high` 思考强度）、`gpt-6.1-terra`（其余情况）和 `gpt-6-luna`（实现阶段，建议 `max` 思考强度）。每个配置的模型都应能在 `pi --list-models` 里按 `provider` 找到，字段与改法见[路由字段](#路由字段)与[思考强度](#思考强度)。
 - 分类器（可选）：在 pi 内配置一个类型为 `classifier` 的模型，默认 `typesafe/jev-latest`。适配器、凭据和关闭方式见[分类器端点](#分类器端点)。
@@ -366,7 +366,7 @@ npm test
 PI_ROUTER_HOST_MODULE=/absolute/path/to/pi-coding-agent/dist/index.js npm test
 ```
 
-不设置 `PI_ROUTER_HOST_MODULE` 时宿主用例会跳过并说明原因。在 pi 1.4.0 和 Node 24.15.0 上，套件总共报告 32 个套件、313 个测试。不带宿主模块时 305 个通过、8 个跳过，带上时 313 个全部通过。
+在 Node 24.15.0 上，`npm test` 有 322 个测试通过，9 个宿主用例跳过。将 `PI_ROUTER_HOST_MODULE` 指向 pi 1.6.1 的公开入口后，331 个测试全部通过。
 
 测试使用固定的分类器与目录夹具，检查路由和会话生命周期。它们不衡量分类器准确率、生产时延、任务质量或费用。适配器测试通过注册表替身提供归一化结果，真实登录和线上协议不在这些测试范围内。
 
