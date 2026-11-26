@@ -262,10 +262,12 @@ async function core() {
 	const classifierCount = resumed.classifiers.length;
 	await prompt(resumed, "Reply exactly OK. Do not call tools.");
 	assert.equal(stateOf(resumed.manager).slot, "complex"); assert.equal(stateOf(resumed.manager).stageSeq, 3);
-	assert.equal(resumed.classifiers.length, classifierCount);
-	check("simple new user after upgrade stays complex without classifier");
+	assert.equal(resumed.classifiers.length, classifierCount + 1);
+	assert.equal(stateOf(resumed.manager).turnsInSlot, 1);
+	check("one new user assessment keeps complex during the minimum dwell period");
 	await bounded(resumed, () => resumed.session.compact("Keep the summary brief. Preserve the test files and completed task status."));
-	assert.ok(resumed.manager.getBranch().some((e: any) => e.type === "compaction" && e.usage));
+	const compaction = resumed.manager.getBranch().findLast((e: any) => e.type === "compaction" && e.usage);
+	assert.ok(compaction);
 	assert.ok(resumed.routes.some((r: any) => r.reason === "direct" && r.model === luna));
 	assert.equal(stateOf(resumed.manager).slot, "complex");
 	const forkManager = host.SessionManager.open(sessionFile, join(root, "fork-storage"));
@@ -274,13 +276,17 @@ async function core() {
 	const afterCompact = await open("after-compact", { sessionFile, cwd });
 	assert.equal(stateOf(afterCompact.manager).slot, "complex");
 	await continuation(afterCompact);
-	assert.equal(afterCompact.routes.at(-1).model, sol); assert.equal(afterCompact.classifiers.length, 0);
+	assert.equal(afterCompact.routes.at(-1).model, sol); assert.equal(afterCompact.classifiers.length, 1);
 	assert.equal(stateOf(afterCompact.manager).stageSeq, 3);
-	const originalUsage = await queryUsage(afterCompact); assert.equal(originalUsage.calls, 2); assert.equal(originalUsage.pendingCalls, 0);
+	assert.equal(stateOf(afterCompact.manager).turnsInSlot, 1);
+	assert.equal(stateOf(afterCompact.manager).lastCompactionEntryId, compaction.id);
+	const classifierResults = [...h.classifiers, ...resumed.classifiers, ...afterCompact.classifiers];
+	const originalUsage = await queryUsage(afterCompact);
+	assert.equal(originalUsage.calls, classifierResults.length); assert.equal(originalUsage.pendingCalls, 0);
 	for (const key of ["input", "output", "cacheRead", "cacheWrite", "totalTokens"]) assert.equal(originalUsage.tokens[key],
-		[h.classifiers[0], resumed.classifiers[0]].reduce((sum, c) => sum + (c.usage[key] ?? 0), 0));
+		classifierResults.reduce((sum, c) => sum + (c.usage?.[key] ?? 0), 0));
 	afterCompact.close();
-	check("real compaction uses direct luna; reopen preserves complex state and user deduplication");
+	check("real compaction uses direct luna; the first reopened continuation processes the compaction once");
 	const fork = await open("fork", { sessionFile: forkFile, cwd });
 	assert.equal(stateOf(fork.manager).slot, "implementation"); assert.equal(stateOf(fork.manager).stageSeq, 2);
 	await continuation(fork);
@@ -288,7 +294,7 @@ async function core() {
 	const original = host.SessionManager.open(sessionFile, join(root, "original-inspect"));
 	assert.equal(stateOf(original).slot, "complex"); assert.equal(stateOf(original).stageSeq, 3);
 	assert.deepEqual(await queryUsage(fork), initialUsage); assert.deepEqual(await queryUsage(fork, "session"), { ...initialUsage, scope: "session" });
-	assert.equal(summarizeClassifierUsage(original).calls, 2); fork.close();
+	assert.deepEqual(summarizeClassifierUsage(original), originalUsage); fork.close();
 	check("persisted fork inherits selected ancestor implementation while original remains complex");
 }
 async function cancel() {

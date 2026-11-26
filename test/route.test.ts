@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 
-import factory from "../extensions/jev-router.ts";
+import factory, { loadConfig } from "../extensions/jev-router.ts";
 
 const CONFIG_ENV = "JEV_ROUTER_CONFIG";
 const AGENT_ENV = "PI_CODING_AGENT_DIR";
@@ -323,6 +323,63 @@ async function initialized(patch: any = {}, probability = 0.1) {
 	await h.dispatch(); return h;
 }
 
+describe("adaptive planning and handoff", () => {
+	it("blocks handoff when the planning threshold is met exactly", async () => {
+		for (const [threshold, planning, afterWrite] of [[0.5, "mid", "cheap"], [0.18, "strong", "strong"]] as const) {
+			const h = await initialized({ threshold }, 0.18);
+			assert.equal(h.state.model, planning);
+			assert.equal(h.state.handoffEvidence?.probability, planning === "mid" ? 0.18 : undefined);
+			const write = h.add({ role: "toolResult", toolName: "write", isError: false });
+			assert.equal((await h.dispatch("continuation")).model.id, afterWrite);
+			assert.equal(h.calls.length, 1);
+			assert.equal(h.state.stageSeq, afterWrite === "cheap" ? 2 : 1);
+			assert.equal(h.state.stageStartEntryId, afterWrite === "cheap" ? write.id : h.branch[0].id);
+		}
+	});
+	for (const point of ["user", "compaction"] as const) for (const available of [true, false]) {
+		it(`handoff threshold cannot change planning at ${point} reassessment (classification available: ${available})`, async () => {
+			for (const [handoffThreshold, active] of [[0.2, "mid"], [0.3, "cheap"]] as const) {
+				const h = await initialized({ adaptive: { handoffThreshold } }, 0.3);
+				assert.equal(h.state.model, "mid");
+				h.add({ role: "toolResult", toolName: "write", isError: false });
+				assert.equal((await h.dispatch("continuation")).model.id, active);
+				assert.equal((await h.dispatch("continuation")).model.id, active);
+				if (point === "user") h.user("next");
+				else h.branch.push({ type: "compaction", id: "compact" });
+				h.result = available ? choice(0.3) : { stopReason: "error" };
+				assert.equal((await h.dispatch(point === "user" ? "user" : "continuation")).model.id, "mid");
+				assert.deepEqual(h.state.planning, { slot: "standard", model: "mid" });
+				assert.equal(h.state.turnsInSlot, point === "user" ? 1 : 0);
+				assert.equal((await h.dispatch("continuation")).model.id, "mid");
+				assert.equal(h.calls.length, 2);
+			}
+		});
+	}
+	for (const legacyKey of [false, true]) it("retains saved handoff through a direct-only config change and retry (legacy key: " + legacyKey + ")", async () => {
+		const before = await initialized();
+		const after = harness({ strategy: "adaptive", models: { ...slots, direct: "strong" } });
+		after.user(); after.state = before.state;
+		if (legacyKey) {
+			const { planning, ...state } = before.state;
+			assert.deepEqual(planning, { slot: "standard", model: "mid" });
+			const key = JSON.parse(state.configKey);
+			key.splice(4, 0, null);
+			after.state = { ...state, policyVersion: "adaptive-v3", configKey: JSON.stringify(key) };
+		}
+		const anchor = after.state.stageStartEntryId;
+		const write = after.add({ role: "toolResult", toolName: "write", isError: false });
+		const failed = { model: after.ctx.modelRegistry.catalog.get("mid"), thinkingLevel: "high" };
+		assert.equal((await after.dispatch("retry", { failed })).model.id, "mid");
+		assert.equal(after.state.stageStartEntryId, anchor);
+		assert.equal(after.state.stageSeq, 1);
+		assert.equal(after.state.handoff, "first-write");
+		assert.equal((await after.dispatch("continuation")).model.id, "cheap");
+		assert.equal(after.state.stageStartEntryId, write.id);
+		assert.equal(after.state.stageSeq, 2);
+		assert.equal(after.calls.length, 0);
+	});
+});
+
 describe("adaptive classification T07–T24", () => {
 	for (const start of ["mid", "cheap"]) it(start + " upgrades once, keeps strong on continue and writes", async () => {
 		const h = await initialized();
@@ -347,15 +404,15 @@ describe("adaptive classification T07–T24", () => {
 		["throw", () => { throw Error("SECRET"); }], ["missing", { stopReason: "stop", answers: {} }],
 		["wrong-type", { stopReason: "stop", answers: { complexity: { type: "bool" } } }],
 		...[undefined, NaN, Infinity, -0.1, 1.1].map(p => ["probability-" + p, choice(p as number)]),
-	] as const) it(label + " blocks initial handoff and retains existing implementation on reassessment", async () => {
+	] as const) it(label + " blocks initial handoff and returns to planning on reassessment", async () => {
 		const fresh = harness({ strategy: "adaptive" }); fresh.user(); fresh.result = result;
 		assert.equal((await fresh.dispatch()).model.id, "mid");
 		fresh.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await fresh.dispatch("continuation")).model.id, "mid");
 		const h = await initialized();
 		h.add({ role: "toolResult", toolName: "write", isError: false }); await h.dispatch("continuation");
-		h.result = result; h.user("next"); assert.equal((await h.dispatch()).model.id, "cheap");
-		assert.equal(h.state.handoff, "locked"); assert.equal(h.state.stageSeq, 2);
+		h.result = result; h.user("next"); assert.equal((await h.dispatch()).model.id, "mid");
+		assert.equal(h.state.handoff, "locked"); assert.equal(h.state.stageSeq, 3);
 		const calls = h.calls.length; await h.dispatch(); assert.equal(h.calls.length, calls);
 	});
 	for (const disabled of ["disabled", "missing-classifier"]) it(disabled + " initializes standard and never downgrades retained model", async () => {
@@ -436,7 +493,7 @@ describe("guarded adaptive handoff", () => {
 		const h = await initialized(); h.state = { ...h.state, policyVersion: "adaptive-v1" };
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "mid"); assert.equal(h.state.handoff, "locked");
-		assert.equal(h.state.policyVersion, "adaptive-v3");
+		assert.equal(h.state.policyVersion, "adaptive-v4");
 	});
 });
 
@@ -497,6 +554,26 @@ describe("handoff and branch boundaries T25–T36", () => {
 });
 
 describe("retry and recovery T37–T49", () => {
+	for (const strategy of ["adaptive", "fixed", "record"]) it(strategy + " does not reuse thinking from an ineligible same-ID failure", async () => {
+		const h = harness({ strategy }); h.user();
+		const failed = { model: { id: "mid", provider: "other" }, thinkingLevel: "high" };
+		const routed = await h.dispatch("retry", { failed });
+		assert.equal(routed.model.id, "mid");
+		assert.equal(routed.thinkingLevel, "medium");
+		assert.equal(h.calls.length, 0);
+	});
+	it("a retry on a different model applies only until the next adaptive assessment", async () => {
+		const h = await initialized();
+		const failed = { model: h.ctx.modelRegistry.catalog.get("strong"), thinkingLevel: "high" };
+		assert.equal((await h.dispatch("retry", { failed })).model.id, "strong");
+		assert.equal((await h.dispatch("continuation")).model.id, "strong");
+		assert.equal(h.state.handoff, "locked");
+		assert.deepEqual(h.state.planning, { slot: "standard", model: "mid" });
+		assert.equal(h.calls.length, 1);
+		h.user("next"); h.result = choice(0.3);
+		assert.equal((await h.dispatch()).model.id, "mid");
+		assert.equal(h.calls.length, 2);
+	});
 	it("same-model adaptive retry preserves an armed handoff; a different model locks it", async () => {
 		const h = await initialized(); const state = h.state; const writes = h.writes;
 		assert.equal(state.handoff, "first-write"); assert.ok(state.handoffEvidence);
@@ -506,8 +583,17 @@ describe("retry and recovery T37–T49", () => {
 		h.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
 		const other = await initialized();
-		await other.dispatch("retry", { failed: { model: other.ctx.modelRegistry.catalog.get("strong") } });
+		const earlierWrite = other.add({ role: "toolResult", toolName: "write", isError: false });
+		const failed = { model: other.ctx.modelRegistry.catalog.get("strong") };
+		await other.dispatch("retry", { failed });
 		assert.equal(other.state.handoff, "locked");
+		assert.equal(other.state.handoffEvidence, undefined);
+		assert.equal(other.state.stageStartEntryId, earlierWrite.id);
+		assert.equal(other.state.stageSeq, 2);
+		const switched = other.state; const switchedWrites = other.writes;
+		await other.dispatch("retry", { failed });
+		assert.equal(other.state, switched);
+		assert.equal(other.writes, switchedWrites);
 		other.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await other.dispatch("continuation")).model.id, "strong");
 		const down = await initialized({}, 0.8);
@@ -515,6 +601,24 @@ describe("retry and recovery T37–T49", () => {
 		assert.equal(down.state.handoff, "locked");
 		down.add({ role: "toolResult", toolName: "write", isError: false });
 		assert.equal((await down.dispatch("continuation")).model.id, "mid");
+	});
+	it("retry uses the recovered planning model and advances the persisted stage once", async () => {
+		const h = await initialized();
+		h.add({ role: "toolResult", toolName: "write", isError: false });
+		assert.equal((await h.dispatch("continuation")).model.id, "cheap");
+		const original = h.state; const writes = h.writes;
+		const leaf = h.add({ role: "assistant", stopReason: "stop", content: "done" });
+		h.ctx.modelRegistry.catalog.delete("cheap");
+		const failed = { model: h.ctx.modelRegistry.catalog.get("mid") };
+		assert.equal((await h.dispatch("retry", { failed })).model.id, "mid");
+		assert.equal(h.state.handoff, "locked");
+		assert.equal(h.state.handoffEvidence, undefined);
+		assert.equal(h.state.stageSeq, original.stageSeq + 1);
+		assert.equal(h.state.stageStartEntryId, leaf.id);
+		assert.equal(h.writes, writes + 1);
+		await h.dispatch("retry", { failed });
+		assert.equal(h.writes, writes + 1);
+		assert.equal(h.calls.length, 1);
 	});
 	it("retry on same failed model preserves handoff and evidence, thinking and limits", async () => {
 		const h = await initialized(); const state = h.state; const writes = h.writes;
@@ -598,6 +702,35 @@ describe("retry and recovery T37–T49", () => {
 });
 
 describe("record observations", () => {
+	const legacyKey = (direct: unknown) => {
+		const { config } = loadConfig();
+		return JSON.stringify([config.provider, config.models.complex, config.models.standard,
+			config.models.implementation, direct, config.threshold, config.promptLimit, config.adaptive, config.classifier]);
+	};
+	for (const legacy of [false, true]) it("deduplicates a saved entry after a direct-only change (legacy key: " + legacy + ")", async () => {
+		const before = harness({ strategy: "record" }); before.user(); before.result = choice(0.1);
+		await before.dispatch();
+		const saved = JSON.parse(JSON.stringify(before.state));
+		if (legacy) saved.record.configKey = legacyKey(null);
+		const reopened = harness({ strategy: "record", models: { ...slots, direct: "strong" } });
+		reopened.user(); reopened.state = saved;
+		assert.equal((await reopened.dispatch()).model.id, "mid");
+		assert.equal(reopened.calls.length, 0);
+		assert.equal(reopened.writes, 0);
+	});
+	for (const [condition, patch] of [["the threshold changes", { threshold: 0.65 }], ["the classifier changes", { classifier: { id: "other" } }], ["the legacy key is malformed", null]] as const) {
+		it("reassesses a saved entry when " + condition, async () => {
+			const before = harness({ strategy: "record" }); before.user(); before.result = choice(0.1);
+			await before.dispatch();
+			const saved = JSON.parse(JSON.stringify(before.state));
+			if (patch === null) saved.record.configKey = legacyKey(42);
+			const reopened = harness({ strategy: "record", ...patch }); reopened.user(); reopened.state = saved;
+			assert.equal((await reopened.dispatch()).model.id, "mid");
+			assert.equal(reopened.calls.length, 1);
+			await reopened.dispatch();
+			assert.equal(reopened.calls.length, 1);
+		});
+	}
 	it("follows fixed routes while assessing each new native user once", async () => {
 		const h = harness({ strategy: "record" }); h.user(); h.result = choice(0.1);
 		assert.equal((await h.dispatch()).model.id, "mid");
@@ -804,11 +937,11 @@ describe("shared slot IDs and late classification", () => {
 		h.user("complex"); h.result = choice(1); await h.dispatch();
 		assert.equal(h.calls.length, 2); assert.equal(h.state.slot, "complex"); assert.equal(h.state.stageSeq, seq + 1); assert.equal(h.state.handoff, "locked");
 	});
-	it("timeout after initialization keeps model and handles a late success without state changes", async () => {
+	it("timeout on a new boundary restores the planning model and ignores late success", async () => {
 		const h = await initialized({ adaptive: { decisionTimeoutMs: 2 } });
 		h.add({ role: "toolResult", toolName: "write", isError: false }); await h.dispatch("continuation"); h.user("complex");
 		let resolve!: (value: any) => void; h.result = () => new Promise(yes => { resolve = yes; });
-		assert.equal((await h.dispatch()).model.id, "cheap"); const writes = h.writes; const state = h.state;
+		assert.equal((await h.dispatch()).model.id, "mid"); const writes = h.writes; const state = h.state;
 		resolve(choice(1)); await new Promise(yes => setImmediate(yes)); assert.equal(h.state, state); assert.equal(h.writes, writes);
 	});
 	it("cancelled initialization returns no state and can be retried on same user", async () => {
@@ -818,7 +951,7 @@ describe("shared slot IDs and late classification", () => {
 	});
 });
 
-describe("adaptive v3 boundaries", () => {
+describe("adaptive user and compaction boundaries", () => {
 	it("clears stale handoff evidence when a standard compaction holds", async () => {
 		const h = harness({ strategy: "adaptive" }); h.user();
 		h.branch.push({ type: "context_edit", id: "edit" }); h.result = choice(0.1); await h.dispatch();

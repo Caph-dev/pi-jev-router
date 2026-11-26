@@ -53,16 +53,15 @@ The router plans on either `models.complex` or `models.standard`. Before classif
 ```mermaid
 flowchart TB
   B["new user message / compaction boundary"] --> C{"classifier available?"}
-  C -- "no" --> K["keep the current model"]
+  C -- "no" --> K["resume the saved planning model"]
   C -- "yes" --> P["complex probability p"]
-  P --> S{"current slot"}
+  P --> S{"saved planning slot"}
   S -- "not complex and p reaches threshold" --> UP["upgrade to models.complex"]
   S -- "complex and p at most downgradeThreshold after minDwellTurns" --> DN["downgrade to models.standard"]
   S -- "standard and p below threshold" --> W["a successful write in handoffTools"]
   W --> G{"every guarded condition holds and implementation is on?"}
   G -- "yes" --> I["hand off to models.implementation"]
   G -- "no" --> H["stay on models.standard"]
-  S -- "implementation and p below threshold" --> IM2["stay on models.implementation"]
 ```
 
 ### `fixed`
@@ -89,9 +88,9 @@ flowchart TB
   S -- "yes" --> K["keep the current model"]
 ```
 
-When the first classification is unavailable, the router selects `models.standard`. When a later classification is unavailable, the router keeps the current model.
+When the first classification is unavailable, the router selects `models.standard`. When a later classification is unavailable, `adaptive` resumes the saved planning model.
 
-A missing initial model, a missing `models.direct` target, or a missing `models.standard` model fails the request with a configuration error. A missing handoff target or upgrade target keeps the current model. A model saved in state that is no longer in the catalog is replaced with `models.standard`, and that recovered state locks handoff.
+A missing initial model, a missing `models.direct` target, or a missing `models.standard` model fails the request with a configuration error. A missing handoff or upgrade target leaves the planning model in use. An unavailable active model in saved adaptive state falls back to the saved planning model if available, then to `models.standard`. Recovery locks handoff.
 
 A classifier call sends the projected text with `maxRetries` set to 0, and it stops at the local deadline. An eligible retry stays on the failed model; [Retries](#retries) lists the conditions. Cancellation aborts routing and returns no candidate state. A direct request skips classification and saved state, and cancellation stops it the same way.
 
@@ -158,7 +157,7 @@ The deadline field keeps the name `adaptive.decisionTimeoutMs` so older files st
 
 Models on `openrouter`, `vercel-ai-gateway`, and `opencode` proxy the System One format and use that provider's credentials.
 
-A classifier missing from the catalog yields `missing-classifier`, and an adapter failure yields `error`. With no previous planning model to reuse, initialization selects `models.standard`; a later failure keeps the current model. Neither result allows guarded handoff.
+A classifier missing from the catalog yields `missing-classifier`, and an adapter failure yields `error`. With no previous planning model to reuse, initialization selects `models.standard`; a later failure keeps the saved planning model. Neither result allows guarded handoff.
 
 Set `threshold` again after you change the classifier, the model, or `classifier.temperature`. Each of those changes the probability scale.
 
@@ -204,7 +203,7 @@ On initialization, the router reuses an available previous planning model. With 
 
 The native user entry is the last projection source whose original role is `user`. The classifier reads that entry's projected visible text. A converted custom message, a summary, or bash output does not replace that source. The entry can come from the SDK or another extension, so a `user` role does not mean a person typed the text. A transform that exists for one request does not replace the stored projection.
 
-A probability at or above `threshold` selects `models.complex`. A lower probability selects `models.standard`. When classification is unavailable, initialization selects `models.standard`, and a later failure keeps the current model.
+A probability at or above `threshold` selects `models.complex`. A lower probability selects `models.standard`. When classification is unavailable, initialization selects `models.standard`, and a later failure keeps the saved planning model.
 
 ### Handoff to the implementation model
 
@@ -216,7 +215,7 @@ Guarded adaptive handoff requires all of the following:
 - The context-token estimate is finite, zero or greater, and at most `adaptive.maxHandoffContextTokens`.
 - `models.implementation` is still in the catalog.
 
-A complex selection locks handoff. Disabled classification, a missing classifier, an invalid answer, an error, or a timeout does not allow guarded handoff. A new user boundary replaces the previous handoff evidence.
+A complex selection locks handoff. Disabled classification, a missing classifier, an invalid answer, an error, or a timeout does not allow guarded handoff. A new user or compaction assessment replaces the previous handoff evidence.
 
 A nested call with status `ok` counts even when the outer tool later fails or its record is incomplete. The call shows that a write finished, not that the whole task finished. A failed or unfinished nested call does not count. Tool arguments do not count, prose that says the file was written does not count, and a successful wrapper tool does not count.
 
@@ -224,7 +223,9 @@ The check uses entry ids on the current branch. A write before `stageStartEntryI
 
 ### Upgrades and downgrades
 
-Each new native user entry is assessed once, including on complex. A probability at or above `threshold` upgrades a non-complex slot. Complex downgrades to standard when the probability is at or below `adaptive.downgradeThreshold`, the current input is complete, and `adaptive.minDwellTurns` evaluated user turns have elapsed in the slot. Incomplete input prevents downgrade, and unavailable classification keeps the model. A slot change resets the dwell count, and a branch may upgrade and hand off more than once.
+A successful handoff switches the active model for subsequent requests in the current stage. At the next user or compaction assessment, `adaptive` uses the separately saved planning slot, even when classification is unavailable. A successful write in the new stage can trigger another handoff.
+
+Each new native user entry is assessed once, including on complex. A probability at or above `threshold` upgrades a non-complex planning slot. Complex downgrades to standard when the probability is at or below `adaptive.downgradeThreshold`, the current input is complete, and `adaptive.minDwellTurns` evaluated user turns have elapsed in the slot. Incomplete input prevents downgrade. The dwell count resets when the planning slot changes.
 
 Each new compaction entry also triggers one assessment, on the next user or continuation request. Compaction does not increase the dwell count. A new user entry and a compaction together cause one assessment, and a retry does not consume a pending compaction. Re-enabling handoff sets a new write boundary, so earlier writes cannot trigger it.
 
@@ -240,7 +241,7 @@ To keep the older first-write rule, set the policy in config:
 
 A retry neither classifies nor hands off. It keeps the failed model when that model is still available on the configured provider, and the failed id matches a configured model id or the id already stored in state. It also keeps the failed model's thinking level. When those checks fail, the retry uses valid state, an available previous planning model, or `models.standard`.
 
-A retry whose selected model matches the valid state model keeps the handoff state, including when it falls back to that model. A retry onto a different model locks handoff. Repeating a retry does not append a second copy of the same state. pi stores the returned state before it sends the main request, and a later model failure does not undo that stored state.
+A retry whose selected model matches the valid state model keeps the handoff state, including when it falls back to that model. A retry onto a different model locks handoff. In `adaptive`, that model serves the current stage, and the next assessment uses the saved planning slot. Repeating a retry does not append a second copy of the same state. pi stores the returned state before it sends the main request, and a later model failure does not undo that stored state.
 
 ### Deadlines and cancellation
 
@@ -250,9 +251,9 @@ Caller cancellation or a service abort stops routing and returns no candidate st
 
 ### Saved state and migration
 
-Adaptive state uses `schemaVersion` 1 and `policyVersion` `"adaptive-v3"`. Older phase and model state, `adaptive-v1`, and `adaptive-v2` migrate with handoff locked, and existing compactions are marked handled during migration.
+Adaptive state uses `schemaVersion` 1 and `policyVersion` `"adaptive-v4"`. It stores both the active model and the planning slot. A migrated v3 execution state can continue on its active model and starts the next assessment with `models.standard` as its planning model. Older phase and model state, `adaptive-v1`, and `adaptive-v2` migrate with handoff locked, and existing compactions are marked handled during migration.
 
-A configuration change, a provider change, or a lost `stageStartEntryId` ends the previous handoff. Invalid adaptive state fails with `invalid adaptive state; start a new session or switch strategy to fixed`.
+A change to routing policy, a provider change, or a lost `stageStartEntryId` ends the previous handoff. Changing only `models.direct` preserves valid handoff state. Invalid adaptive state fails with `invalid adaptive state; start a new session or switch strategy to fixed`.
 
 `fixed` reads adaptive phase and model state. Setting `strategy` to `fixed` restores fixed handoff. Fixed state records the provider, the handoff lock, and `stageStartEntryId`. State follows resume, compaction, and branch ancestry, and a new session starts with no saved routing state.
 
@@ -262,7 +263,7 @@ A configuration change, a provider change, or a lost `stageStartEntryId` ends th
 
 stderr carries a line with `proposedModel`, `available`, and `applied` set to false. The line is printed when `debug` is off. When `debug` is on, the debug log carries the same decision. `record` keeps the `fixed` model, and the logged model is the upgrade it would have selected. The fields include no quality score and no cost delta.
 
-The last assessed entry id is stored, so reopening a session does not classify that entry again. A retry and a continuation do not run record classification.
+The last assessed entry id and its evaluation settings are stored. Reopening a session with the same settings skips that entry, including when only `models.direct` changed. A retry and a continuation do not run record classification.
 
 ## The `/jev-router` command
 
@@ -345,7 +346,7 @@ User text and assistant text can contain a pasted secret or file contents, and t
 
 - `jev/auto` is missing from `/model` when the package is not loaded, pi has not been restarted, or a checkout is loaded beside the npm package. Install one copy and restart pi.
 - A configured model is missing from `pi --list-models` when `provider` or `models` does not match the catalog. Set those fields to ids from that command.
-- Classification fails or times out. Initialization then uses `models.standard` when no previous planning model can be reused, and a later failure keeps the current model. Set `classifier` to `null` to turn classification off.
+- Classification fails or times out. Initialization then uses `models.standard` when no previous planning model can be reused, and a later failure keeps the saved planning model. Set `classifier` to `null` to turn classification off.
 - `missing-classifier` means the catalog has no `classifier` model for that provider and id. `error` means the adapter request failed, from a missing credential, an unreachable endpoint, or a server error. For `llama.cpp`, raise `classifier.timeoutMs` before treating the router as failed.
 - A config edit applies on the next pi start, because pi reads the sources in [configuration files](#configuration-files). An unknown key prints a warning.
 - A write is ignored when pi has no nested tool records and the successful write is not the outer tool result.

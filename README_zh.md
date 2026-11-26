@@ -53,16 +53,15 @@ pi install npm:@caph42/pi-jev-router
 ```mermaid
 flowchart TB
   B["新的用户消息 / 压缩边界"] --> C{"分类器可用?"}
-  C -- "否" --> K["保持当前模型"]
+  C -- "否" --> K["恢复已保存的规划模型"]
   C -- "是" --> P["得到 complex 概率 p"]
-  P --> S{"当前槽位"}
+  P --> S{"已保存的规划槽位"}
   S -- "非 complex 且 p 达到 threshold" --> UP["升级到 models.complex"]
   S -- "complex 且 p 不高于 downgradeThreshold 且驻留 minDwellTurns 轮以上" --> DN["降级到 models.standard"]
   S -- "standard 且 p 低于 threshold" --> W["handoffTools 里一次成功写入"]
   W --> G{"守卫条件全部成立且 implementation 未关闭?"}
   G -- "是" --> I["交接 models.implementation"]
   G -- "否" --> H["留在 models.standard"]
-  S -- "implementation 且 p 低于 threshold" --> IM2["留在 models.implementation"]
 ```
 
 ### `fixed`
@@ -89,9 +88,9 @@ flowchart TB
   S -- "是" --> K["保持当前模型"]
 ```
 
-第一次分类不可用时，路由器选择 `models.standard`。之后的分类不可用时，路由器保持当前模型。
+第一次分类不可用时，路由器选择 `models.standard`。之后的分类不可用时，`adaptive` 恢复已保存的规划模型。
 
-初始模型缺失、`models.direct` 指向的模型缺失、`models.standard` 缺失时，请求以配置错误失败。交接目标或升级目标缺失时保持当前模型。状态里保存的模型已经不在目录中时，替换为 `models.standard`，恢复出来的这份状态会锁定交接。
+初始模型缺失、`models.direct` 指向的模型缺失、`models.standard` 缺失时，请求以配置错误失败。交接目标或升级目标缺失时沿用规划模型。Adaptive 状态里保存的当前模型已经不在目录中时，优先使用仍可用的规划模型，再回退到 `models.standard`。恢复会锁定交接。
 
 分类调用发送投影后的文本，`maxRetries` 为 0，并在本地期限处停止。符合条件时重试留在失败的模型上，条件见[重试](#重试)。取消会中止路由，并返回空的状态。直接请求跳过分类和已保存状态，取消同样会中止它。
 
@@ -158,7 +157,7 @@ pi 读取下表中的文件。
 
 `openrouter`、`vercel-ai-gateway` 和 `opencode` 上的模型代理 System One 格式，并使用各自 provider 的凭据。
 
-目录里找不到分类器时结果是 `missing-classifier`，适配器调用失败时结果是 `error`。没有可复用的上一规划模型时，初始阶段选择 `models.standard`；之后的失败保持当前模型。这两种结果都不允许守卫式交接。
+目录里找不到分类器时结果是 `missing-classifier`，适配器调用失败时结果是 `error`。没有可复用的上一规划模型时，初始阶段选择 `models.standard`；之后的失败保持已保存的规划模型。这两种结果都不允许守卫式交接。
 
 改过分类器、模型或 `classifier.temperature` 之后要重新设置 `threshold`，因为它们都会改变概率的尺度。
 
@@ -204,7 +203,7 @@ pi 读取下表中的文件。
 
 原生用户条目是原始角色为 `user` 的最后一个投影来源。分类器读取该条目投影后的可见文本。转换过的自定义消息、摘要或 bash 输出都不会替换这个来源。该条目可能来自 SDK 或另一个扩展，所以角色是 `user` 不代表有人手打过这段文字。只对单个请求生效的变换不会替换已保存的投影。
 
-概率达到 `threshold` 选中 `models.complex`，更低则选中 `models.standard`。分类不可用时，初始化选择 `models.standard`；之后的失败保持当前模型。
+概率达到 `threshold` 选中 `models.complex`，更低则选中 `models.standard`。分类不可用时，初始化选择 `models.standard`；之后的失败保持已保存的规划模型。
 
 ### 交接给实现模型
 
@@ -216,7 +215,7 @@ pi 读取下表中的文件。
 - 上下文 token 估算是有限数，大于或等于 0，并且不超过 `adaptive.maxHandoffContextTokens`。
 - `models.implementation` 仍在模型目录中。
 
-选中 complex 会锁定交接。分类被关闭、分类器缺失、回答无效、报错或超时，都不允许守卫式交接。新的用户边界会替换之前的交接证据。
+选中 complex 会锁定交接。分类被关闭、分类器缺失、回答无效、报错或超时，都不允许守卫式交接。用户或压缩边界的重评会替换之前的交接证据。
 
 状态为 `ok` 的嵌套调用，即使外层工具随后失败或记录不完整，也算数。这次调用说明写入已经完成，不说明整个任务已经完成。失败或未完成的嵌套调用不算。工具参数不算，正文里写文件已写好不算，成功的包装工具也不算。
 
@@ -224,7 +223,9 @@ pi 读取下表中的文件。
 
 ### 升级与降级
 
-每个新的原生用户条目评估一次，complex 槽位也一样。概率达到 `threshold` 时，非 complex 槽位升级。complex 在概率不高于 `adaptive.downgradeThreshold`、当前输入完整、且槽位内已评估至少 `adaptive.minDwellTurns` 个用户轮次时降级到 standard。输入不完整时不降级，分类不可用时保持当前模型。槽位变化会把驻留计数归零，同一分支可以多次升级和交接。
+交接成功后，当前阶段的后续请求使用实现模型。下一次用户或压缩重评使用单独保存的规划槽位，分类不可用时也恢复该槽位。新阶段内再次成功写入时，可以重新触发交接。
+
+每个新的原生用户条目评估一次，complex 槽位也一样。概率达到 `threshold` 时，非 complex 规划槽位升级。complex 在概率不高于 `adaptive.downgradeThreshold`、当前输入完整、且槽位内已评估至少 `adaptive.minDwellTurns` 个用户轮次时降级到 standard。输入不完整时不降级。规划槽位变化时，驻留计数归零。
 
 每个新压缩条目也会触发一次评估，发生在下一个 user 或 continuation 请求上。压缩不增加驻留计数。新用户消息和压缩同时出现时只评估一次，重试不会消费待处理的压缩。重新启用交接会设置新的写入边界，更早的写入无法触发它。
 
@@ -240,7 +241,7 @@ pi 读取下表中的文件。
 
 重试不分类，也不交接。失败模型仍在已配置的 provider 上可用，而且失败 id 匹配某个已配置模型 id 或状态里已保存的 id 时，重试留在该模型上。它同时保留该模型的思考强度。这些检查不通过时，重试使用有效状态、可用的上一规划模型，或 `models.standard`。
 
-重试最终选中的模型与有效状态模型相同时保留交接状态，包括回退到该模型的情况。落到不同模型上的重试会锁定交接。重复重试不会追加第二份相同状态。pi 在发送主请求之前保存返回的状态，之后的模型失败不会撤销这份状态。
+重试最终选中的模型与有效状态模型相同时保留交接状态，包括回退到该模型的情况。落到不同模型上的重试会锁定交接。在 `adaptive` 中，该模型用于当前阶段，下一次重评使用已保存的规划槽位。重复重试不会追加第二份相同状态。pi 在发送主请求之前保存返回的状态，之后的模型失败不会撤销这份状态。
 
 ### 期限与取消
 
@@ -250,9 +251,9 @@ pi 读取下表中的文件。
 
 ### 保存的状态与迁移
 
-Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v3"`。更早的阶段与模型状态、`adaptive-v1` 和 `adaptive-v2` 在迁移时锁定交接，已有的压缩在迁移中标为已处理。
+Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v4"`，分别保存当前模型和规划槽位。v3 的实现阶段状态迁移后可以继续用原模型续接，下一次重评从 `models.standard` 规划槽位起步。更早的阶段与模型状态、`adaptive-v1` 和 `adaptive-v2` 在迁移时锁定交接，已有的压缩在迁移中标为已处理。
 
-配置变化、provider 变化或 `stageStartEntryId` 丢失会结束之前的交接。Adaptive 状态非法时报错 `invalid adaptive state; start a new session or switch strategy to fixed`。
+路由策略变化、provider 变化或 `stageStartEntryId` 丢失会结束之前的交接。仅修改 `models.direct` 时，有效的交接状态可以保留。Adaptive 状态非法时报错 `invalid adaptive state; start a new session or switch strategy to fixed`。
 
 `fixed` 能读取 adaptive 的阶段与模型状态。把 `strategy` 设为 `fixed` 会恢复 fixed 交接。Fixed 状态记录 provider、交接锁和 `stageStartEntryId`。状态跟随 resume、压缩和分支继承，新会话不带保存的路由状态。
 
@@ -262,7 +263,7 @@ Adaptive 状态使用 `schemaVersion` 1 和 `policyVersion` `"adaptive-v3"`。�
 
 `debug` 关闭时，stderr 上打印一行，包含 `proposedModel`、`available` 和恒为 false 的 `applied`。`debug` 打开时，同一份决策写进调试日志。`record` 保持 `fixed` 的模型，日志里的模型是它本会选中的升级目标。这些字段不含质量评分，也不含费用差额。
 
-最后评估过的条目 id 会被保存，重新打开会话不会重复分类该条目。重试和 continuation 不运行 record 分类。
+路由器保存最后评估过的条目 id 和评估设置。评估设置一致时，重新打开会话会跳过该条目，仅修改 `models.direct` 时也是如此。重试和 continuation 不运行 record 分类。
 
 ## `/jev-router` 命令
 
@@ -345,7 +346,7 @@ Adaptive 分类和之后的 record 检查总是在当前用户文本之外带上
 
 - `/model` 里没有 `jev/auto`：包没加载、pi 没重启，或者本地检出和 npm 包同时加载了。只装一份，然后重启 pi。
 - 配置的模型在 `pi --list-models` 里找不到：`provider` 或 `models` 与目录不一致。把字段改成该命令输出的 id。
-- 分类失败或超时：没有可复用的上一规划模型时，初始化改用 `models.standard`；之后的失败保持当前模型。把 `classifier` 设为 `null` 可以关闭分类。
+- 分类失败或超时：没有可复用的上一规划模型时，初始化改用 `models.standard`；之后的失败保持已保存的规划模型。把 `classifier` 设为 `null` 可以关闭分类。
 - `missing-classifier` 表示目录里没有该 provider 和 id 的分类器模型。`error` 表示适配器请求失败，原因可能是缺凭据、端点不可达或服务端报错。用 `llama.cpp` 时先调大 `classifier.timeoutMs`，再判断路由是否出问题。
 - 改配置后要到下次启动 pi 才生效，因为 pi 读取的是[配置文件](#配置文件)里列出的来源。未知字段会打印警告。
 - 宿主没有嵌套工具记录，而成功写入不是外层工具的结果时，写入会被忽略。
