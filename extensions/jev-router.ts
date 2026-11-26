@@ -37,15 +37,23 @@
  *   pi install ./path/to/pi-jev-router                  (as a package)
  */
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext, ModelRoute, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ModelRoute } from "@earendil-works/pi-coding-agent";
 
+import { ADAPTIVE_POLICY_VERSION, routeAdaptive, type AdaptiveDecisionReason, type ClassifierUsage,
+	type ComplexityAssessment, type RouterRequest, type RouterState, type UnavailableReason } from "./lib/adaptive-routing.ts";
+import { matchesConfigIgnoringDirect, routingConfigIdentity } from "./lib/config-identity.ts";
+import { buildClassifierInput, currentUser, hasSuccessfulWriteAfterBoundary, type ClassifierInput } from "./lib/session-input.ts";
 import { createDiagnostics, diagnosticFailure, finiteNonnegative } from "./lib/diagnostics.ts";
+import { selectRetryTarget } from "./lib/retry-target.ts";
+import type { RouterConfig } from "./lib/router-config.ts";
+
+export type { RouterConfig } from "./lib/router-config.ts";
 
 const PACKAGE_NAME = "pi-jev-router";
 const CONFIG_FILE_NAME = "jev-router.json";
@@ -57,59 +65,6 @@ const STATE_FILE_NAME = "jev-router-state.json";
 const EDIT_TOOLS = new Set(["edit", "write"]);
 
 const ALL_THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
-
-export interface RouterConfig {
-	strategy: "fixed" | "adaptive" | "record";
-	diagnostics: { record: boolean };
-	adaptive: {
-		handoffTools: string[];
-		handoffPolicy: "guarded" | "first-write";
-		handoffThreshold: number;
-		maxHandoffContextTokens: number;
-		decisionTimeoutMs: number;
-		downgradeThreshold: number;
-		minDwellTurns: number;
-		historyMaxTurns: number;
-		historyCharLimit: number;
-	};
-	/** Provider that holds the physical models. */
-	provider: string;
-	models: {
-		/** Planning model for demanding work. */
-		complex: string;
-		/** Planning model otherwise, and the fallback when the classifier is unavailable. */
-		standard: string;
-		/** Implementation model. `null` keeps every request on the planning model. */
-		implementation: string | null;
-		/** Model for requests outside the agent loop. `null` follows `implementation`, then `standard`. */
-		direct: string | null;
-	};
-	virtual: {
-		/** Provider the virtual model is listed under. Any id pi has no physical model for always works. */
-		provider: string;
-		id: string;
-		name: string;
-		/** Levels offered for selection. Defaults to the set every Codex model supports. */
-		thinkingLevels: readonly ModelThinkingLevel[];
-		/** Limits shown before the first response; afterwards pi adopts the routed model's limits. */
-		contextWindow: number;
-		maxTokens: number;
-	};
-	/** Classifier that rates the planning prompt. `null` disables classification. */
-	classifier: {
-		provider: string;
-		id: string;
-		/** Divides label logits before normalizing; adapters that read label probabilities apply it. */
-		temperature?: number;
-		/** Local deadline for one classifier call; overrides `adaptive.decisionTimeoutMs`. */
-		timeoutMs?: number;
-	} | null;
-	/** Probability at or above which a prompt counts as complex. */
-	threshold: number;
-	/** Characters of the last user message sent to the classifier. */
-	promptLimit: number;
-	debug: boolean;
-}
 
 /** Built-in defaults; exported so tests can assert what a config file leaves untouched. */
 export const DEFAULT_CONFIG: RouterConfig = {
@@ -136,126 +91,6 @@ export const DEFAULT_CONFIG: RouterConfig = {
 	promptLimit: 16_000,
 	debug: false,
 };
-
-interface RouterState {
-	phase: "planning" | "implementation";
-	/** Physical model for this phase. */
-	model: string;
-	provider?: string;
-	handoff?: "first-write" | "locked";
-	stageStartEntryId?: string | null;
-	record?: RecordState;
-	/** Pre-2.0 name for `record`, still read from sessions saved by older versions. */
-	shadow?: RecordState;
-}
-
-interface RecordState {
-	lastEvaluatedUserEntryId: string | null;
-	configKey: string;
-}
-
-interface AdaptiveState extends RouterState {
-	schemaVersion: 1;
-	policyVersion: "adaptive-v1" | "adaptive-v2" | "adaptive-v3";
-	strategy: "adaptive";
-	provider: string;
-	slot: "complex" | "standard" | "implementation" | "retained";
-	stageSeq: number;
-	stageStartEntryId: string | null;
-	handoff: "first-write" | "locked";
-	lastEvaluatedUserEntryId: string | null;
-	configKey: string;
-	turnsInSlot: number;
-	lastCompactionEntryId: string | null;
-	handoffEvidence?: { inputKey: string; probability: number };
-}
-
-type RouterRequest = ModelRouteRequest<RouterState | AdaptiveState>;
-type Branch = ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
-type Projection = ReturnType<ExtensionContext["sessionManager"]["buildSessionProjection"]>;
-
-function configIdentity(config: RouterConfig): string {
-	return JSON.stringify([config.provider, config.models.complex, config.models.standard,
-		config.models.implementation, config.models.direct, config.threshold, config.promptLimit,
-		config.adaptive, config.classifier]);
-}
-
-function modelSlot(config: RouterConfig, state: RouterState): AdaptiveState["slot"] {
-	if (state.phase === "implementation" && state.model === config.models.implementation) return "implementation";
-	if (state.phase === "planning" && state.model === config.models.complex) return "complex";
-	if (state.phase === "planning" && state.model === config.models.standard) return "standard";
-	return "retained";
-}
-
-function latestCompaction(branch: Branch): string | null {
-	return branch.findLast(entry => entry.type === "compaction")?.id ?? null;
-}
-
-function boundaryDecision(point: "user" | "compaction", slot: AdaptiveState["slot"], result: ComplexityResult,
-	complete: boolean, turns: number, config: RouterConfig): { slot: AdaptiveState["slot"]; reason: string } {
-	if (result.kind !== "classified") return { slot, reason: point === "compaction" ? "compaction-unavailable" : "keep-unavailable" };
-	if (result.probability >= config.threshold && slot !== "complex")
-		return { slot: "complex", reason: point === "compaction" ? "compaction-upgrade" : "upgrade" };
-	if (slot === "complex" && complete && result.probability <= config.adaptive.downgradeThreshold) {
-		if (turns >= config.adaptive.minDwellTurns) return { slot: "standard", reason: point === "compaction" ? "compaction-downgrade" : "downgrade" };
-		return { slot, reason: point === "compaction" ? "compaction-hold" : "hold-dwell" };
-	}
-	return { slot, reason: point === "compaction" ? "compaction-hold" : "keep-simple" };
-}
-
-/** Normalize locally; no state is committed until route returns successfully. */
-function normalizeAdaptiveState(raw: RouterState | AdaptiveState | undefined, config: RouterConfig,
-	branch: Branch, leaf: string | null, exists: (id: string) => boolean): AdaptiveState | undefined {
-	if (raw === undefined) return undefined;
-	const invalid = () => fail("invalid adaptive state; start a new session or switch strategy to fixed");
-	if (!raw || typeof raw !== "object" || !["planning", "implementation"].includes(raw.phase) ||
-		typeof raw.model !== "string" || !raw.model.trim()) invalid();
-	const key = configIdentity(config);
-	let state: AdaptiveState;
-	if (!("schemaVersion" in raw)) {
-		state = { ...raw, schemaVersion: 1, policyVersion: "adaptive-v3", strategy: "adaptive",
-			provider: config.provider, slot: modelSlot(config, raw), stageSeq: 1,
-			stageStartEntryId: leaf, handoff: "locked", lastEvaluatedUserEntryId: null, configKey: key,
-			turnsInSlot: config.adaptive.minDwellTurns, lastCompactionEntryId: latestCompaction(branch) };
-	} else {
-		if (raw.schemaVersion !== 1 || !["adaptive-v1", "adaptive-v2", "adaptive-v3"].includes(raw.policyVersion) || raw.strategy !== "adaptive" ||
-			typeof raw.provider !== "string" || !raw.provider || typeof raw.configKey !== "string" ||
-			!Number.isSafeInteger(raw.stageSeq) || raw.stageSeq < 1 ||
-			!["complex", "standard", "implementation", "retained"].includes(raw.slot) ||
-			!["first-write", "locked"].includes(raw.handoff) ||
-			![raw.stageStartEntryId, raw.lastEvaluatedUserEntryId].every(id => id === null || (typeof id === "string" && id.length > 0))) invalid();
-		if ((raw.phase === "implementation" && !["implementation", "retained"].includes(raw.slot)) ||
-			(raw.phase === "planning" && raw.slot === "implementation") ||
-			(raw.handoff === "first-write" && raw.phase !== "planning")) invalid();
-		if (raw.configKey === key && raw.provider === config.provider && exists(raw.model) && raw.slot !== "retained" && config.models[raw.slot] !== raw.model) invalid();
-		if (raw.handoffEvidence !== undefined && (!raw.handoffEvidence || typeof raw.handoffEvidence.inputKey !== "string" ||
-			!Number.isFinite(raw.handoffEvidence.probability) || raw.handoffEvidence.probability < 0 || raw.handoffEvidence.probability > 1)) invalid();
-		if (raw.policyVersion === "adaptive-v3" && (!Number.isSafeInteger(raw.turnsInSlot) || raw.turnsInSlot < 0 ||
-			!(raw.lastCompactionEntryId === null || (typeof raw.lastCompactionEntryId === "string" && raw.lastCompactionEntryId.length > 0)))) invalid();
-		state = raw;
-	}
-	if (state.policyVersion !== "adaptive-v3") state = { ...state, policyVersion: "adaptive-v3", handoff: "locked", handoffEvidence: undefined,
-		turnsInSlot: config.adaptive.minDwellTurns, lastCompactionEntryId: latestCompaction(branch) };
-	if (state.configKey !== key || state.provider !== config.provider || !exists(state.model)) {
-		const retain = state.provider === config.provider && exists(state.model);
-		state = { ...state, configKey: key, provider: config.provider, handoff: "locked", stageStartEntryId: leaf,
-			model: retain ? state.model : config.models.standard, phase: retain ? state.phase : "planning" };
-		const oldSlot = state.slot;
-		state.slot = !retain ? "standard" : state.slot !== "retained" && config.models[state.slot] === state.model ? state.slot : modelSlot(config, state);
-		if (state.slot !== oldSlot) state.turnsInSlot = 0;
-	}
-	if (state.stageStartEntryId === null || !branch.some(entry => entry.id === state.stageStartEntryId)) {
-		if (state.handoff !== "locked") state = { ...state, handoff: "locked" };
-	}
-	return state;
-}
-
-type UnavailableReason = "disabled" | "missing-classifier" | "timeout" | "error" | "invalid-answer" | "missing-input";
-type ClassifierUsage = { tokens: Record<string, number>; cost: number | "unknown" };
-type ComplexityResult = (
-	| { kind: "classified"; probability: number; durationMs: number }
-	| { kind: "unavailable"; reason: UnavailableReason; durationMs: number }
-	| { kind: "cancelled"; durationMs: number }) & { usage?: ClassifierUsage; api?: string };
 
 function classifierUsage(usage: unknown, price: unknown): ClassifierUsage | undefined {
 	if (!usage || typeof usage !== "object") return undefined;
@@ -342,82 +177,7 @@ function beginClassificationUsage(pi: ExtensionAPI, ctx: ExtensionContext, confi
 	};
 }
 
-function textContent(content: unknown): string {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content.filter(block => block.type === "text" && typeof block.text === "string").map(block => block.text).join("\n");
-}
-
-function currentUser(projection: Projection): { id: string; text: string; hasImages: boolean } | undefined {
-	const entry = projection.entries.findLast(({ sourceEntry }) => sourceEntry.type === "message" && sourceEntry.message.role === "user");
-	if (!entry) return undefined;
-	return { id: entry.sourceEntry.id, text: entry.messages.filter(message => message.role === "user").map(message => textContent(message.content)).join("\n"),
-		hasImages: entry.messages.some(message => message.role === "user" && Array.isArray(message.content) && message.content.some(block => block.type === "image")) };
-}
-
-/** Both boundaries are persistent IDs on this branch, never message indexes. */
-function hasSuccessfulWriteAfterBoundary(branch: Branch, state: Pick<AdaptiveState, "stageStartEntryId" | "lastEvaluatedUserEntryId">, userId: string | undefined, tools: readonly string[]): boolean {
-	if (!userId || userId !== state.lastEvaluatedUserEntryId) return false;
-	const anchor = branch.findIndex(entry => entry.id === state.stageStartEntryId);
-	const user = branch.findIndex(entry => entry.id === userId);
-	if (anchor < 0 || user < 0) return false;
-	return branch.slice(Math.max(anchor, user) + 1).some(entry => {
-		if (entry.type !== "message" || entry.message.role !== "toolResult") return false;
-		const message = entry.message;
-		return (tools.includes(message.toolName) && message.isError === false) ||
-			Boolean(message.nestedCalls?.calls.some(call => tools.includes(call.name) && call.status === "ok"));
-	});
-}
-
-type RecentTurn = { user: string; assistant: string[] };
-type ClassifierInput = { current: string; recentTurns?: RecentTurn[]; historyPartial?: boolean };
-
-function buildClassifierInput(config: RouterConfig, projection: Projection, branch: Branch,
-	user: ReturnType<typeof currentUser>): ClassifierInput {
-	const current = (user?.text ?? "").slice(0, config.promptLimit);
-	let historyPartial = branch.some(entry => ["compaction", "context_edit", "branch_summary"].includes(entry.type));
-	const turns: RecentTurn[] = [];
-	let turn: RecentTurn | undefined;
-	let successful = false;
-	const close = () => {
-		if (turn && turn.user.trim() && successful) turns.push(turn);
-		else if (turn) historyPartial = true;
-	};
-	for (const { sourceEntry, messages } of projection.entries) {
-		if (sourceEntry.id === user?.id) break;
-		if (["compaction", "context_edit", "branch_summary"].includes(sourceEntry.type)) historyPartial = true;
-		if (sourceEntry.type !== "message") continue;
-		if (sourceEntry.message.role === "user") {
-			close();
-			turn = { user: messages.filter(message => message.role === "user").map(message => textContent(message.content)).join("\n"), assistant: [] };
-			successful = false;
-		} else if (sourceEntry.message.role === "assistant") {
-			if (!turn || messages.length === 0) historyPartial = true;
-			for (const message of messages) {
-				if (message.role !== "assistant") continue;
-				if (!["stop", "toolUse"].includes(message.stopReason)) { historyPartial = true; continue; }
-				if (!turn) continue;
-				successful = true;
-				const text = textContent(message.content);
-				if (text) turn.assistant.push(text);
-			}
-		}
-	}
-	close();
-	const recentTurns: RecentTurn[] = [];
-	let chars = 0;
-	for (const item of turns.toReversed()) {
-		const size = item.user.length + item.assistant.reduce((total, text) => total + text.length, 0);
-		if (recentTurns.length >= config.adaptive.historyMaxTurns || chars + size > config.adaptive.historyCharLimit) {
-			historyPartial = true;
-			break;
-		}
-		chars += size;
-		recentTurns.unshift(item);
-	}
-	if (!user) historyPartial = true;
-	return { current, recentTurns, historyPartial };
-}
+type ComplexityResult = ComplexityAssessment | { kind: "cancelled"; durationMs: number };
 
 async function classifyComplexity(pi: ExtensionAPI, request: RouterRequest, ctx: ExtensionContext, config: RouterConfig,
 	input: ClassifierInput | { prompt: string }): Promise<ComplexityResult> {
@@ -425,7 +185,7 @@ async function classifyComplexity(pi: ExtensionAPI, request: RouterRequest, ctx:
 	const durationMs = () => Math.max(0, performance.now() - start);
 	let usage: ClassifierUsage | undefined;
 	let api: string | undefined;
-	const unavailable = (reason: UnavailableReason): ComplexityResult => ({ kind: "unavailable", reason, durationMs: durationMs(), usage, api });
+	const unavailable = (reason: UnavailableReason): ComplexityAssessment => ({ kind: "unavailable", reason, durationMs: durationMs(), usage, api });
 	if (request.signal?.aborted) return { kind: "cancelled", durationMs: durationMs() };
 	const text = "prompt" in input ? input.prompt : input.current;
 	if (!text.trim()) return unavailable("missing-input");
@@ -928,20 +688,20 @@ export default function (pi: ExtensionAPI) {
 		maxTokens: config.virtual.maxTokens,
 		async route(request: RouterRequest, ctx: ExtensionContext): Promise<ModelRoute<RouterState>> {
 			request.signal?.throwIfAborted();
-			let decisionReason = "keep-state";
+			let decisionReason: AdaptiveDecisionReason | "direct" | "record-upgrade" | "record-hold" = "keep-state";
 			let classifierStatus = "not-called";
 			let classifierDurationMs = 0;
 			let classifierApi: string | null = null;
 			let probability: number | undefined;
 			let record: { proposedModel: { provider: string; id: string }; applied: false; available: boolean } | undefined;
 			let usage: ClassifierUsage | undefined;
-			const observe = (result: ComplexityResult) => {
+			const observe = (result: ComplexityResult): ComplexityAssessment => {
+				if (result.kind === "cancelled") throw new DOMException("Classification cancelled", "AbortError");
 				classifierStatus = result.kind === "unavailable" ? result.reason : result.kind;
 				classifierDurationMs = result.durationMs;
 				classifierApi = result.api ?? null;
 				probability = result.kind === "classified" ? result.probability : undefined;
 				usage = result.usage;
-				if (result.kind === "cancelled") throw new DOMException("Classification cancelled", "AbortError");
 				return result;
 			};
 			/** Adopt the routed model's limits so the declared ones stay honest before the first response. */
@@ -956,7 +716,7 @@ export default function (pi: ExtensionAPI) {
 				}
 			};
 
-			const route = (id: string, state?: RouterState | AdaptiveState, level?: ModelThinkingLevel) => {
+			const route = (id: string, state?: RouterRequest["state"], level?: ModelThinkingLevel) => {
 				request.signal?.throwIfAborted();
 				const model = ctx.modelRegistry.find(config.provider, id);
 				if (!model)
@@ -972,7 +732,7 @@ export default function (pi: ExtensionAPI) {
 				);
 				const fromProvider = request.state?.provider ?? request.previous?.model.provider ?? config.provider;
 				const from = request.state?.model ?? request.previous?.model.id ?? null;
-				const decision = { strategy: config.strategy, policyVersion: config.strategy === "adaptive" ? "adaptive-v3" : config.strategy,
+				const decision = { strategy: config.strategy, policyVersion: config.strategy === "adaptive" ? ADAPTIVE_POLICY_VERSION : config.strategy,
 					requestReason: request.reason, stageSeq: state && "stageSeq" in state ? state.stageSeq : null,
 					from, to: id, decisionReason, classifierStatus, classifierApi, probability, classifierDurationMs,
 					switched: from !== null && (from !== id || fromProvider !== config.provider), ...(usage ? { usage } : {}),
@@ -996,122 +756,17 @@ export default function (pi: ExtensionAPI) {
 				const manager = ctx.sessionManager;
 				if (!manager || typeof manager.getBranch !== "function" || typeof manager.getLeafId !== "function" || typeof manager.buildSessionProjection !== "function")
 					fail("adaptive requires host branch/projection support; upgrade pi or use strategy fixed");
-				const branch = manager.getBranch();
-				const leaf = manager.getLeafId();
-				const compaction = latestCompaction(branch);
-				let candidate = normalizeAdaptiveState(request.state, config, branch, leaf, id => Boolean(ctx.modelRegistry.find(config.provider, id)));
-				if (candidate !== request.state) decisionReason = "state-recovered";
-				const projection = manager.buildSessionProjection();
-				const user = currentUser(projection);
-				const key = configIdentity(config);
-				const input = buildClassifierInput(config, projection, branch, user);
-				const inputKey = createHash("sha256").update(JSON.stringify(input)).digest("hex");
-				const completeInput = Boolean(user?.text.trim() && !user.hasImages && user.text.length <= config.promptLimit);
-				const createState = (id: string, handoff: AdaptiveState["handoff"], slot = modelSlot(config, { phase: "planning", model: id })): AdaptiveState => ({
-					phase: "planning", model: id, schemaVersion: 1, policyVersion: "adaptive-v3", strategy: "adaptive",
-					provider: config.provider, slot, stageSeq: 1,
-					stageStartEntryId: leaf, handoff, lastEvaluatedUserEntryId: user?.id ?? null, configKey: key,
-					turnsInSlot: 0, lastCompactionEntryId: compaction,
+				const result = await routeAdaptive(request, config, {
+					branch: manager.getBranch(),
+					leaf: manager.getLeafId(),
+					projection: () => manager.buildSessionProjection(),
+					exists: id => Boolean(ctx.modelRegistry.find(config.provider, id)),
+					estimateContextTokens: () => ctx.getContextUsage?.()?.tokens ?? undefined,
+					assess: async input => observe(await classifyComplexity(pi, request, ctx, config, input)),
 				});
-				const finish = (state: AdaptiveState, level?: ModelThinkingLevel) => {
-					request.signal?.throwIfAborted();
-					const original = request.state;
-					if (original && "schemaVersion" in original) {
-						const changed = original.model !== state.model || original.phase !== state.phase || original.slot !== state.slot || original.configKey !== state.configKey || original.provider !== state.provider;
-						state = { ...state, stageSeq: original.stageSeq + (changed ? 1 : 0),
-							stageStartEntryId: changed ? leaf : state.stageStartEntryId };
-						if (JSON.stringify(state) === JSON.stringify(original)) state = original;
-					}
-					return route(state.model, state, level);
-				};
-				const previousPlanning = () => {
-					const model = request.previous?.model;
-					return model?.provider === config.provider && [config.models.complex, config.models.standard].includes(model.id) &&
-						ctx.modelRegistry.find(config.provider, model.id) ? model.id : undefined;
-				};
-				if (request.reason === "retry") {
-					decisionReason = "retry-sticky";
-					const failed = request.failed;
-					const allowed = failed?.model.provider === config.provider &&
-						[...Object.values(config.models), candidate?.model].includes(failed.model.id) &&
-						ctx.modelRegistry.find(config.provider, failed.model.id);
-					const id = allowed ? failed!.model.id : candidate?.model ?? previousPlanning() ?? config.models.standard;
-					if (candidate && id === candidate.model) return finish(candidate, allowed ? failed?.thinkingLevel : undefined);
-					const state = candidate ? { ...candidate, model: id, handoff: "locked" as const } : createState(id, "locked");
-					if ((!candidate && allowed && id === implementation) || (candidate && id !== candidate.model)) {
-						state.phase = id === implementation ? "implementation" : "planning";
-						state.slot = modelSlot(config, state);
-						if (candidate && state.slot !== candidate.slot) state.turnsInSlot = 0;
-					}
-					return finish(state, allowed ? failed?.thinkingLevel : undefined);
-				}
-				if (!candidate) {
-					let id = previousPlanning();
-					decisionReason = id ? "previous-reused" : "initial";
-					let slot: AdaptiveState["slot"] = id === config.models.complex ? "complex" : "standard";
-					let assessment: ComplexityResult | undefined;
-					if (!id && request.reason === "user") {
-						const result = assessment = observe(await classifyComplexity(pi, request, ctx, config, input));
-						slot = result.kind === "classified" && result.probability >= config.threshold ? "complex" : "standard";
-						id = config.models[slot];
-					}
-					const evidence = slot === "standard" && completeInput && assessment?.kind === "classified" &&
-						assessment.probability < config.threshold && assessment.probability <= config.adaptive.handoffThreshold ?
-						{ inputKey, probability: assessment.probability } : undefined;
-					const firstWrite = slot === "standard" && request.reason === "user" && user && leaf && branch.some(entry => entry.id === leaf) && implementation && config.adaptive.handoffTools.length > 0 &&
-						(config.adaptive.handoffPolicy === "first-write" || evidence !== undefined);
-					const state = createState(id ?? config.models.standard, firstWrite ? "first-write" : "locked", slot);
-					if (firstWrite && evidence) state.handoffEvidence = evidence;
-					return finish(state);
-				}
-				const newUser = request.reason === "user" && user && user.id !== candidate.lastEvaluatedUserEntryId;
-				const pendingCompaction = compaction !== null && compaction !== candidate.lastCompactionEntryId;
-				if (newUser || ((request.reason === "user" || request.reason === "continuation") && pendingCompaction)) {
-					const point = newUser ? "user" : "compaction";
-					const turns = candidate.turnsInSlot + (newUser ? 1 : 0);
-					const result = observe(await classifyComplexity(pi, request, ctx, config, input));
-					const decision = boundaryDecision(point, candidate.slot, result, completeInput, turns, config);
-					decisionReason = decision.reason;
-					const changing = decision.slot !== candidate.slot;
-					const target = decision.slot === "complex" ? config.models.complex : config.models.standard;
-					candidate = { ...candidate, turnsInSlot: turns, lastCompactionEntryId: compaction,
-						lastEvaluatedUserEntryId: newUser ? user!.id : candidate.lastEvaluatedUserEntryId };
-					if (changing && ctx.modelRegistry.find(config.provider, target)) {
-						candidate = { ...candidate, model: target, phase: "planning", slot: decision.slot, turnsInSlot: 0 };
-					} else if (changing) decisionReason = "target-missing";
-					const evidence = candidate.slot === "standard" && completeInput && result.kind === "classified" &&
-						result.probability < config.threshold && result.probability <= config.adaptive.handoffThreshold ? { inputKey, probability: result.probability } : undefined;
-					const enable = candidate.slot === "standard" && Boolean(user && leaf && implementation && config.adaptive.handoffTools.length) &&
-						(config.adaptive.handoffPolicy === "first-write" || evidence !== undefined);
-					if (newUser || ((changing || point === "compaction") && candidate.slot === "standard")) {
-						candidate = { ...candidate, handoff: enable ? "first-write" : "locked", handoffEvidence: enable ? evidence : undefined,
-							stageStartEntryId: enable ? leaf : candidate.stageStartEntryId };
-					} else if (candidate.slot === "complex") {
-						candidate = { ...candidate, handoff: "locked", handoffEvidence: undefined };
-					}
-				} else if (request.reason === "continuation" && candidate.handoff === "first-write" && candidate.phase === "planning" && implementation &&
-					hasSuccessfulWriteAfterBoundary(branch, candidate, user?.id, config.adaptive.handoffTools)) {
-					if (config.adaptive.handoffPolicy === "guarded") {
-						const evidence = candidate.handoffEvidence;
-						if (!completeInput || candidate.slot !== "standard" || !evidence || evidence.inputKey !== inputKey ||
-							evidence.probability >= config.threshold || evidence.probability > config.adaptive.handoffThreshold) {
-							decisionReason = "handoff-no-evidence";
-							return finish({ ...candidate, handoff: "locked" });
-						}
-						const tokens = ctx.getContextUsage?.()?.tokens;
-						if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens < 0 || tokens > config.adaptive.maxHandoffContextTokens) {
-							decisionReason = typeof tokens === "number" && Number.isFinite(tokens) && tokens >= 0 ? "handoff-context-large" : "handoff-context-unknown";
-							return finish(candidate);
-						}
-					}
-					decisionReason = "handoff-model-unavailable";
-					if (ctx.modelRegistry.find(config.provider, implementation)) {
-						decisionReason = "initial-write";
-						candidate = { ...candidate, model: implementation, phase: "implementation", slot: "implementation", turnsInSlot: 0, handoff: "locked" };
-					}
-				}
-				if (decisionReason === "keep-state" && request.reason === "user") decisionReason = "already-evaluated";
-				return finish(candidate);
+				if (result.kind === "invalid-state") fail("invalid adaptive state; start a new session or switch strategy to fixed");
+				decisionReason = result.reason;
+				return route(result.state.model, result.state, result.thinkingLevel);
 			}
 
 			const manager = ctx.sessionManager;
@@ -1131,20 +786,17 @@ export default function (pi: ExtensionAPI) {
 			const fixedState = (id: string, phase: RouterState["phase"], handoff: "locked" | "first-write"): RouterState =>
 				({ model: id, phase, provider: config.provider, handoff, stageStartEntryId: leaf,
 					...(state?.record ? { record: state.record } : {}) });
-			const recordKey = configIdentity(config);
 			const recovered = state && ((state.provider !== undefined && state.provider !== config.provider) || !exists(state.model));
 			if (recovered) state = fixedState(config.models.standard, "planning", "locked");
 			if (request.reason === "retry") {
 				decisionReason = "retry-sticky";
-				const failed = request.failed;
-				const allowed = failed?.model.provider === config.provider && exists(failed.model.id) &&
-					[...Object.values(config.models), state?.model].includes(failed.model.id);
-				const id = allowed ? failed!.model.id : state?.model ?? previousPlanning ?? config.models.standard;
+				const { id, thinkingLevel } = selectRetryTarget(request, config, state?.model, exists, previousPlanning);
 				const next = state?.model === id && !("schemaVersion" in state) ? state :
 					fixedState(id, state?.model === id ? state.phase : id === implementation ? "implementation" : "planning", "locked");
-				return route(id, next, allowed ? failed?.thinkingLevel : undefined);
+				return route(id, next, thinkingLevel);
 			}
 			if (recovered) { decisionReason = "state-recovered"; return route(state!.model, state); }
+			const recordKey = config.strategy === "record" ? routingConfigIdentity(config) : undefined;
 			if (!state) {
 				decisionReason = previousPlanning ? "previous-reused" : "initial";
 				let id = previousPlanning;
@@ -1154,11 +806,11 @@ export default function (pi: ExtensionAPI) {
 				}
 				id ??= config.models.standard;
 				const next = fixedState(id, "planning", request.reason === "user" ? "first-write" : "locked");
-				if (config.strategy === "record") next.record = { lastEvaluatedUserEntryId: user?.id ?? null, configKey: recordKey };
+				if (recordKey !== undefined) next.record = { lastEvaluatedUserEntryId: user?.id ?? null, configKey: recordKey };
 				return route(id, next);
 			}
-			if (config.strategy === "record" && request.reason === "user" && user &&
-				(state.record?.lastEvaluatedUserEntryId !== user.id || state.record.configKey !== recordKey)) {
+			if (recordKey !== undefined && request.reason === "user" && user &&
+				(state.record?.lastEvaluatedUserEntryId !== user.id || !matchesConfigIgnoringDirect(state.record.configKey, recordKey))) {
 				if (state.model !== config.models.complex) {
 					const result = observe(await classifyComplexity(pi, request, ctx, config, buildClassifierInput(config, projection!, branch, user)));
 					const id = result.kind === "classified" && result.probability >= config.threshold ? config.models.complex : state.model;

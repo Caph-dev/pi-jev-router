@@ -84,6 +84,25 @@ describe("real SessionManager final fixed integration", () => {
 });
 
 describe("real SessionManager T57–T61", () => {
+	it("reopens a v3 execution state and restores standard planning on the next user entry", hostOptions, async () => {
+		const h = setup(); const manager = host.SessionManager.create(h.dir, h.dir);
+		manager.appendMessage(nativeUser("task")); await h.dispatch(manager);
+		manager.appendMessage({ role: "toolResult", toolCallId: "w", toolName: "write", isError: false, content: [], timestamp: Date.now() });
+		assert.equal((await h.dispatch(manager, "continuation")).model.id, "cheap");
+		const { planning, ...state } = stateOf(manager);
+		assert.deepEqual(planning, { model: "mid", slot: "standard" });
+		const key = JSON.parse(state.configKey); key.splice(4, 0, null);
+		manager.appendCustomEntry("pi.virtual-model-state", { provider: "jev", modelId: "auto", state: { ...state, policyVersion: "adaptive-v3", configKey: JSON.stringify(key) } });
+		const reopened = host.SessionManager.open(manager.getSessionFile(), h.dir);
+		assert.equal((await h.dispatch(reopened, "continuation")).model.id, "cheap");
+		assert.equal(stateOf(reopened).policyVersion, "adaptive-v4");
+		assert.equal(h.inputs.length, 1);
+		reopened.appendMessage(nativeUser("next"));
+		assert.equal((await h.dispatch(reopened)).model.id, "mid");
+		assert.deepEqual(stateOf(reopened).planning, { model: "mid", slot: "standard" });
+		assert.equal(stateOf(reopened).turnsInSlot, 1);
+		assert.equal(h.inputs.length, 2);
+	});
 	it("redecides once at a real compaction boundary", hostOptions, async () => {
 		const h = setup(); const manager = host.SessionManager.inMemory(h.dir);
 		const user = manager.appendMessage(nativeUser("task")); await h.dispatch(manager);
