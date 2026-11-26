@@ -33,7 +33,7 @@ cd ~/Workspace/pi-packages/pi-jev-router
 
 git status --short          # must be clean
 git pull                    # stay in sync with origin
-npm pack --dry-run          # name, version, and the 7 files that make up the tarball
+npm pack --dry-run          # verify the package name, version, and file list
 npm version patch           # or minor / major — see below
 git push --follow-tags
 npm publish --access public # no browser prompt once the token above is in place
@@ -114,8 +114,8 @@ a non-zero status.
   when you want to test the released artifact.
 - `publishConfig.access = "public"` is required: scoped packages are private by default.
 - The `pi` key in `package.json` points pi at `./extensions/jev-router.ts`; the `files` array decides
-  what the tarball contains (7 files today, including extensions/lib/diagnostics.ts and both READMEs).
-  Anything outside it is not shipped.
+  what the tarball contains. Check that it includes the extension entry point, `extensions/lib/`,
+  the example configuration, both READMEs, and the license.
 - `pi-package` must stay in `keywords` for the pi.dev package gallery to pick the package up; the
   gallery is not instant.
 - Users upgrade with `pi update --extensions`.
@@ -128,7 +128,7 @@ Read and write、勾 **Bypass two-factor authentication**），写进 `~/.npmrc`
 `//registry.npmjs.org/:_authToken=...`。换上新 token 后**不要**执行 `npm logout`（会把新 token
 一起吊销）。
 
-发版流程：`git status` 干净 → `npm pack --dry-run` 确认名字/版本/6 个文件 → `npm version
+发版流程：`git status` 干净 → `npm pack --dry-run` 确认包名、版本和文件清单 → `npm version
 patch|minor|major` → `git push --follow-tags` → `npm publish --access public`。
 
 npm 发布是异步的：返回 `202` 且“being processed”，读接口可能再 404 一两分钟，**不要急着重发**，

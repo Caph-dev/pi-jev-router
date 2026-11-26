@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ExtensionContext, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
 
-import type { RouterConfig } from "../jev-router.ts";
-import { matchesConfigIgnoringDirect } from "./config-identity.ts";
+import type { RouterConfig } from "./router-config.ts";
+import { matchesConfigIgnoringDirect, routingConfigIdentity } from "./config-identity.ts";
 import { selectRetryTarget } from "./retry-target.ts";
 import { buildClassifierInput, currentUser, hasSuccessfulWriteAfterBoundary, type ClassifierInput } from "./session-input.ts";
 
@@ -56,11 +56,6 @@ export type RouterRequest = ModelRouteRequest<RouterState | SavedAdaptiveState>;
 export type Branch = ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
 export type Projection = ReturnType<ExtensionContext["sessionManager"]["buildSessionProjection"]>;
 
-function adaptiveConfigIdentity(config: RouterConfig): string {
-	return JSON.stringify([config.provider, config.models.complex, config.models.standard,
-		config.models.implementation, config.threshold, config.promptLimit, config.adaptive, config.classifier]);
-}
-
 function modelSlot(config: RouterConfig, state: RouterState): AdaptiveState["slot"] {
 	if (state.phase === "implementation" && state.model === config.models.implementation) return "implementation";
 	if (state.phase === "planning" && state.model === config.models.complex) return "complex";
@@ -82,8 +77,15 @@ function latestCompaction(branch: Branch): string | null {
 	return branch.findLast(entry => entry.type === "compaction")?.id ?? null;
 }
 
-function boundaryDecision(point: "user" | "compaction", slot: PlanningSlot, result: ComplexityResult,
-	complete: boolean, turns: number, config: RouterConfig): { slot: PlanningSlot; reason: string } {
+type BoundaryDecisionReason = "compaction-unavailable" | "keep-unavailable" | "compaction-upgrade" | "upgrade" |
+	"compaction-downgrade" | "downgrade" | "compaction-hold" | "hold-dwell" | "keep-simple";
+
+export type AdaptiveDecisionReason = BoundaryDecisionReason | "keep-state" | "state-recovered" | "retry-sticky" |
+	"previous-reused" | "initial" | "target-missing" | "handoff-no-evidence" | "handoff-context-large" |
+	"handoff-context-unknown" | "handoff-model-unavailable" | "initial-write" | "already-evaluated";
+
+function boundaryDecision(point: "user" | "compaction", slot: PlanningSlot, result: ComplexityAssessment,
+	complete: boolean, turns: number, config: RouterConfig): { slot: PlanningSlot; reason: BoundaryDecisionReason } {
 	if (result.kind !== "classified") return { slot, reason: point === "compaction" ? "compaction-unavailable" : "keep-unavailable" };
 	if (result.probability >= config.threshold && slot !== "complex")
 		return { slot: "complex", reason: point === "compaction" ? "compaction-upgrade" : "upgrade" };
@@ -96,12 +98,10 @@ function boundaryDecision(point: "user" | "compaction", slot: PlanningSlot, resu
 
 /** Normalize locally; no state is committed until route returns successfully. */
 function normalizeAdaptiveState(raw: RouterState | SavedAdaptiveState | undefined, config: RouterConfig,
-	branch: Branch, leaf: string | null, exists: (id: string) => boolean): AdaptiveState | undefined {
+	key: string, branch: Branch, leaf: string | null, exists: (id: string) => boolean): AdaptiveState | "invalid-state" | undefined {
 	if (raw === undefined) return undefined;
-	const invalid = (): never => { throw new Error("pi-jev-router: invalid adaptive state; start a new session or switch strategy to fixed"); };
 	if (!raw || typeof raw !== "object" || !["planning", "implementation"].includes(raw.phase) ||
-		typeof raw.model !== "string" || !raw.model.trim()) invalid();
-	const key = adaptiveConfigIdentity(config);
+		typeof raw.model !== "string" || !raw.model.trim()) return "invalid-state";
 	let state: AdaptiveState;
 	if (!("schemaVersion" in raw)) {
 		const slot = modelSlot(config, raw);
@@ -116,31 +116,31 @@ function normalizeAdaptiveState(raw: RouterState | SavedAdaptiveState | undefine
 			!Number.isSafeInteger(raw.stageSeq) || raw.stageSeq < 1 ||
 			!["complex", "standard", "implementation", "retained"].includes(raw.slot) ||
 			!["first-write", "locked"].includes(raw.handoff) ||
-			![raw.stageStartEntryId, raw.lastEvaluatedUserEntryId].every(id => id === null || (typeof id === "string" && id.length > 0))) invalid();
+			![raw.stageStartEntryId, raw.lastEvaluatedUserEntryId].every(id => id === null || (typeof id === "string" && id.length > 0))) return "invalid-state";
 		if ((raw.phase === "implementation" && !["implementation", "retained"].includes(raw.slot)) ||
 			(raw.phase === "planning" && raw.slot === "implementation") ||
-			(raw.handoff === "first-write" && raw.phase !== "planning")) invalid();
+			(raw.handoff === "first-write" && raw.phase !== "planning")) return "invalid-state";
 		const compatible = matchesConfigIgnoringDirect(raw.configKey, key);
 		const samePolicy = compatible && raw.provider === config.provider;
-		if (samePolicy && exists(raw.model) && raw.slot !== "retained" && config.models[raw.slot] !== raw.model) invalid();
+		if (samePolicy && exists(raw.model) && raw.slot !== "retained" && config.models[raw.slot] !== raw.model) return "invalid-state";
 		if (raw.handoffEvidence !== undefined && (!raw.handoffEvidence || typeof raw.handoffEvidence.inputKey !== "string" ||
-			!Number.isFinite(raw.handoffEvidence.probability) || raw.handoffEvidence.probability < 0 || raw.handoffEvidence.probability > 1)) invalid();
+			!Number.isFinite(raw.handoffEvidence.probability) || raw.handoffEvidence.probability < 0 || raw.handoffEvidence.probability > 1)) return "invalid-state";
 		const hasBoundaryState = raw.policyVersion === "adaptive-v3" || raw.policyVersion === ADAPTIVE_POLICY_VERSION;
 		if (hasBoundaryState && (!Number.isSafeInteger(raw.turnsInSlot) || raw.turnsInSlot < 0 ||
-			!(raw.lastCompactionEntryId === null || (typeof raw.lastCompactionEntryId === "string" && raw.lastCompactionEntryId.length > 0)))) invalid();
+			!(raw.lastCompactionEntryId === null || (typeof raw.lastCompactionEntryId === "string" && raw.lastCompactionEntryId.length > 0)))) return "invalid-state";
 		const configKey = compatible ? key : raw.configKey;
 		if (raw.policyVersion === ADAPTIVE_POLICY_VERSION) {
 			const plan = raw.planning;
-			if (!plan || !["complex", "standard", "retained"].includes(plan.slot) || typeof plan.model !== "string" || !plan.model.trim()) invalid();
-			if (samePolicy && plan.slot !== "retained" && config.models[plan.slot] !== plan.model) invalid();
+			if (!plan || !["complex", "standard", "retained"].includes(plan.slot) || typeof plan.model !== "string" || !plan.model.trim()) return "invalid-state";
+			if (samePolicy && plan.slot !== "retained" && config.models[plan.slot] !== plan.model) return "invalid-state";
 			if (raw.handoff === "first-write" && (plan.slot !== "standard" ||
-				(exists(raw.model) && (plan.model !== raw.model || raw.slot !== plan.slot)))) invalid();
+				(exists(raw.model) && (plan.model !== raw.model || raw.slot !== plan.slot)))) return "invalid-state";
 			state = configKey === raw.configKey ? raw : { ...raw, configKey };
 		} else {
-			const hasPlan = raw.phase === "planning" && raw.slot !== "implementation";
-			const planning = hasPlan ? { slot: raw.slot, model: raw.model } : standardPlan(config);
+			const oldPlan = raw.phase === "planning" && raw.slot !== "implementation" ? { slot: raw.slot, model: raw.model } : undefined;
+			const planning = oldPlan ?? standardPlan(config);
 			state = { ...raw, configKey, policyVersion: ADAPTIVE_POLICY_VERSION, planning,
-				turnsInSlot: hasBoundaryState ? (hasPlan ? raw.turnsInSlot : 0) : config.adaptive.minDwellTurns,
+				turnsInSlot: hasBoundaryState ? (oldPlan ? raw.turnsInSlot : 0) : config.adaptive.minDwellTurns,
 				...(!hasBoundaryState ? { handoff: "locked", handoffEvidence: undefined, lastCompactionEntryId: latestCompaction(branch) } : {}) };
 		}
 	}
@@ -165,12 +165,11 @@ function normalizeAdaptiveState(raw: RouterState | SavedAdaptiveState | undefine
 	return state;
 }
 
-type UnavailableReason = "disabled" | "missing-classifier" | "timeout" | "error" | "invalid-answer" | "missing-input";
+export type UnavailableReason = "disabled" | "missing-classifier" | "timeout" | "error" | "invalid-answer" | "missing-input";
 export type ClassifierUsage = { tokens: Record<string, number>; cost: number | "unknown" };
-export type ComplexityResult = (
+export type ComplexityAssessment = (
 	| { kind: "classified"; probability: number; durationMs: number }
-	| { kind: "unavailable"; reason: UnavailableReason; durationMs: number }
-	| { kind: "cancelled"; durationMs: number }) & { usage?: ClassifierUsage; api?: string };
+	| { kind: "unavailable"; reason: UnavailableReason; durationMs: number }) & { usage?: ClassifierUsage; api?: string };
 
 export async function routeAdaptive(request: RouterRequest, config: RouterConfig, host: {
 	branch: Branch;
@@ -178,21 +177,22 @@ export async function routeAdaptive(request: RouterRequest, config: RouterConfig
 	projection: () => Projection;
 	exists: (id: string) => boolean;
 	estimateContextTokens: () => number | undefined;
-	assess: (input: ClassifierInput) => Promise<ComplexityResult>;
+	assess: (input: ClassifierInput) => Promise<ComplexityAssessment>;
 }) {
 	const { branch, leaf, projection, exists, estimateContextTokens, assess } = host;
 	const implementation = config.models.implementation;
-	let decisionReason = "keep-state";
+	let decisionReason: AdaptiveDecisionReason = "keep-state";
 	const compaction = latestCompaction(branch);
-	let candidate = normalizeAdaptiveState(request.state, config, branch, leaf, exists);
+	const key = routingConfigIdentity(config);
+	let candidate = normalizeAdaptiveState(request.state, config, key, branch, leaf, exists);
+	if (candidate === "invalid-state") return { kind: "invalid-state" } as const;
 	if (candidate !== request.state) decisionReason = "state-recovered";
 	const projected = projection();
 	const user = currentUser(projected);
-	const key = adaptiveConfigIdentity(config);
 	const input = buildClassifierInput(config, projected, branch, user);
 	const inputKey = createHash("sha256").update(JSON.stringify(input)).digest("hex");
 	const completeInput = Boolean(user?.text.trim() && !user.hasImages && user.text.length <= config.promptLimit);
-	const guardedEvidence = (slot: AdaptiveState["slot"], result: ComplexityResult | undefined) =>
+	const guardedEvidence = (slot: AdaptiveState["slot"], result: ComplexityAssessment | undefined) =>
 		slot === "standard" && completeInput && result?.kind === "classified" &&
 		result.probability < config.threshold && result.probability <= config.adaptive.handoffThreshold
 			? { inputKey, probability: result.probability } : undefined;
@@ -212,7 +212,7 @@ export async function routeAdaptive(request: RouterRequest, config: RouterConfig
 				stageStartEntryId: changed ? leaf : state.stageStartEntryId };
 			if (original.policyVersion === ADAPTIVE_POLICY_VERSION && JSON.stringify(state) === JSON.stringify(original)) state = original;
 		}
-		return { state, reason: decisionReason, thinkingLevel: level };
+		return { kind: "routed" as const, state, reason: decisionReason, thinkingLevel: level };
 	};
 	const previousPlanning = () => {
 		const model = request.previous?.model;
@@ -222,7 +222,7 @@ export async function routeAdaptive(request: RouterRequest, config: RouterConfig
 	if (request.reason === "retry") {
 		decisionReason = "retry-sticky";
 		const previous = candidate ? undefined : previousPlanning();
-		const { id, keepsFailed, thinkingLevel } = selectRetryTarget(request, config, candidate?.model, exists, () => previous);
+		const { id, keepsFailed, thinkingLevel } = selectRetryTarget(request, config, candidate?.model, exists, previous);
 		if (candidate && id === candidate.model) return finish(candidate, thinkingLevel);
 		const state = candidate ?? createState(previous ?? config.models.standard, "locked", previous ? planningSlot(config, previous) : "standard");
 		const phase = id === implementation && (candidate || keepsFailed) ? "implementation" : "planning";
@@ -234,7 +234,7 @@ export async function routeAdaptive(request: RouterRequest, config: RouterConfig
 		let id = previousPlanning();
 		decisionReason = id ? "previous-reused" : "initial";
 		let slot: PlanningSlot = id === config.models.complex ? "complex" : "standard";
-		let assessment: ComplexityResult | undefined;
+		let assessment: ComplexityAssessment | undefined;
 		if (!id && request.reason === "user") {
 			const result = assessment = await assess(input);
 			slot = result.kind === "classified" && result.probability >= config.threshold ? "complex" : "standard";

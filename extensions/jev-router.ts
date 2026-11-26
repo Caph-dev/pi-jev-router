@@ -45,11 +45,15 @@ import { basename, dirname, join } from "node:path";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext, ModelRoute } from "@earendil-works/pi-coding-agent";
 
-import { ADAPTIVE_POLICY_VERSION, routeAdaptive, type ClassifierUsage, type ComplexityResult, type RouterRequest, type RouterState } from "./lib/adaptive-routing.ts";
-import { matchesConfigIgnoringDirect, recordConfigIdentity } from "./lib/config-identity.ts";
+import { ADAPTIVE_POLICY_VERSION, routeAdaptive, type AdaptiveDecisionReason, type ClassifierUsage,
+	type ComplexityAssessment, type RouterRequest, type RouterState, type UnavailableReason } from "./lib/adaptive-routing.ts";
+import { matchesConfigIgnoringDirect, routingConfigIdentity } from "./lib/config-identity.ts";
 import { buildClassifierInput, currentUser, hasSuccessfulWriteAfterBoundary, type ClassifierInput } from "./lib/session-input.ts";
 import { createDiagnostics, diagnosticFailure, finiteNonnegative } from "./lib/diagnostics.ts";
 import { selectRetryTarget } from "./lib/retry-target.ts";
+import type { RouterConfig } from "./lib/router-config.ts";
+
+export type { RouterConfig } from "./lib/router-config.ts";
 
 const PACKAGE_NAME = "pi-jev-router";
 const CONFIG_FILE_NAME = "jev-router.json";
@@ -61,59 +65,6 @@ const STATE_FILE_NAME = "jev-router-state.json";
 const EDIT_TOOLS = new Set(["edit", "write"]);
 
 const ALL_THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
-
-export interface RouterConfig {
-	strategy: "fixed" | "adaptive" | "record";
-	diagnostics: { record: boolean };
-	adaptive: {
-		handoffTools: string[];
-		handoffPolicy: "guarded" | "first-write";
-		handoffThreshold: number;
-		maxHandoffContextTokens: number;
-		decisionTimeoutMs: number;
-		downgradeThreshold: number;
-		minDwellTurns: number;
-		historyMaxTurns: number;
-		historyCharLimit: number;
-	};
-	/** Provider that holds the physical models. */
-	provider: string;
-	models: {
-		/** Planning model for demanding work. */
-		complex: string;
-		/** Planning model otherwise, and the fallback when the classifier is unavailable. */
-		standard: string;
-		/** Implementation model. `null` keeps every request on the planning model. */
-		implementation: string | null;
-		/** Model for requests outside the agent loop. `null` follows `implementation`, then `standard`. */
-		direct: string | null;
-	};
-	virtual: {
-		/** Provider the virtual model is listed under. Any id pi has no physical model for always works. */
-		provider: string;
-		id: string;
-		name: string;
-		/** Levels offered for selection. Defaults to the set every Codex model supports. */
-		thinkingLevels: readonly ModelThinkingLevel[];
-		/** Limits shown before the first response; afterwards pi adopts the routed model's limits. */
-		contextWindow: number;
-		maxTokens: number;
-	};
-	/** Classifier that rates the planning prompt. `null` disables classification. */
-	classifier: {
-		provider: string;
-		id: string;
-		/** Divides label logits before normalizing; adapters that read label probabilities apply it. */
-		temperature?: number;
-		/** Local deadline for one classifier call; overrides `adaptive.decisionTimeoutMs`. */
-		timeoutMs?: number;
-	} | null;
-	/** Probability at or above which a prompt counts as complex. */
-	threshold: number;
-	/** Characters of the last user message sent to the classifier. */
-	promptLimit: number;
-	debug: boolean;
-}
 
 /** Built-in defaults; exported so tests can assert what a config file leaves untouched. */
 export const DEFAULT_CONFIG: RouterConfig = {
@@ -226,13 +177,15 @@ function beginClassificationUsage(pi: ExtensionAPI, ctx: ExtensionContext, confi
 	};
 }
 
+type ComplexityResult = ComplexityAssessment | { kind: "cancelled"; durationMs: number };
+
 async function classifyComplexity(pi: ExtensionAPI, request: RouterRequest, ctx: ExtensionContext, config: RouterConfig,
 	input: ClassifierInput | { prompt: string }): Promise<ComplexityResult> {
 	const start = performance.now();
 	const durationMs = () => Math.max(0, performance.now() - start);
 	let usage: ClassifierUsage | undefined;
 	let api: string | undefined;
-	const unavailable = (reason: UnavailableReason): ComplexityResult => ({ kind: "unavailable", reason, durationMs: durationMs(), usage, api });
+	const unavailable = (reason: UnavailableReason): ComplexityAssessment => ({ kind: "unavailable", reason, durationMs: durationMs(), usage, api });
 	if (request.signal?.aborted) return { kind: "cancelled", durationMs: durationMs() };
 	const text = "prompt" in input ? input.prompt : input.current;
 	if (!text.trim()) return unavailable("missing-input");
@@ -735,20 +688,20 @@ export default function (pi: ExtensionAPI) {
 		maxTokens: config.virtual.maxTokens,
 		async route(request: RouterRequest, ctx: ExtensionContext): Promise<ModelRoute<RouterState>> {
 			request.signal?.throwIfAborted();
-			let decisionReason = "keep-state";
+			let decisionReason: AdaptiveDecisionReason | "direct" | "record-upgrade" | "record-hold" = "keep-state";
 			let classifierStatus = "not-called";
 			let classifierDurationMs = 0;
 			let classifierApi: string | null = null;
 			let probability: number | undefined;
 			let record: { proposedModel: { provider: string; id: string }; applied: false; available: boolean } | undefined;
 			let usage: ClassifierUsage | undefined;
-			const observe = (result: ComplexityResult) => {
+			const observe = (result: ComplexityResult): ComplexityAssessment => {
+				if (result.kind === "cancelled") throw new DOMException("Classification cancelled", "AbortError");
 				classifierStatus = result.kind === "unavailable" ? result.reason : result.kind;
 				classifierDurationMs = result.durationMs;
 				classifierApi = result.api ?? null;
 				probability = result.kind === "classified" ? result.probability : undefined;
 				usage = result.usage;
-				if (result.kind === "cancelled") throw new DOMException("Classification cancelled", "AbortError");
 				return result;
 			};
 			/** Adopt the routed model's limits so the declared ones stay honest before the first response. */
@@ -808,9 +761,10 @@ export default function (pi: ExtensionAPI) {
 					leaf: manager.getLeafId(),
 					projection: () => manager.buildSessionProjection(),
 					exists: id => Boolean(ctx.modelRegistry.find(config.provider, id)),
-					estimateContextTokens: () => ctx.getContextUsage?.()?.tokens,
+					estimateContextTokens: () => ctx.getContextUsage?.()?.tokens ?? undefined,
 					assess: async input => observe(await classifyComplexity(pi, request, ctx, config, input)),
 				});
+				if (result.kind === "invalid-state") fail("invalid adaptive state; start a new session or switch strategy to fixed");
 				decisionReason = result.reason;
 				return route(result.state.model, result.state, result.thinkingLevel);
 			}
@@ -836,13 +790,13 @@ export default function (pi: ExtensionAPI) {
 			if (recovered) state = fixedState(config.models.standard, "planning", "locked");
 			if (request.reason === "retry") {
 				decisionReason = "retry-sticky";
-				const { id, thinkingLevel } = selectRetryTarget(request, config, state?.model, exists, () => previousPlanning);
+				const { id, thinkingLevel } = selectRetryTarget(request, config, state?.model, exists, previousPlanning);
 				const next = state?.model === id && !("schemaVersion" in state) ? state :
 					fixedState(id, state?.model === id ? state.phase : id === implementation ? "implementation" : "planning", "locked");
 				return route(id, next, thinkingLevel);
 			}
 			if (recovered) { decisionReason = "state-recovered"; return route(state!.model, state); }
-			const recordKey = config.strategy === "record" ? recordConfigIdentity(config) : undefined;
+			const recordKey = config.strategy === "record" ? routingConfigIdentity(config) : undefined;
 			if (!state) {
 				decisionReason = previousPlanning ? "previous-reused" : "initial";
 				let id = previousPlanning;

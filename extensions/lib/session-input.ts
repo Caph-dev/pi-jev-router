@@ -1,4 +1,4 @@
-import type { RouterConfig } from "../jev-router.ts";
+import type { RouterConfig } from "./router-config.ts";
 import type { AdaptiveState, Branch, Projection } from "./adaptive-routing.ts";
 
 function textContent(content: unknown): string {

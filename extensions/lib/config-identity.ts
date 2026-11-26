@@ -1,6 +1,6 @@
-import type { RouterConfig } from "../jev-router.ts";
+import type { RouterConfig } from "./router-config.ts";
 
-export function recordConfigIdentity(config: RouterConfig): string {
+export function routingConfigIdentity(config: RouterConfig): string {
 	return JSON.stringify([config.provider, config.models.complex, config.models.standard,
 		config.models.implementation, config.threshold, config.promptLimit, config.adaptive, config.classifier]);
 }
